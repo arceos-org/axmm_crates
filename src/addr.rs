@@ -318,6 +318,7 @@ impl fmt::UpperHex for VirtAddr {
     }
 }
 
+/// Alias for [`PhysAddr::from`].
 #[macro_export]
 macro_rules! pa {
     ($addr:expr) => {
@@ -325,6 +326,7 @@ macro_rules! pa {
     };
 }
 
+/// Alias for [`VirtAddr::from`].
 #[macro_export]
 macro_rules! va {
     ($addr:expr) => {

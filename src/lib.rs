@@ -2,8 +2,10 @@
 #![doc = include_str!("../README.md")]
 
 mod addr;
+mod range;
 
 pub use self::addr::{PhysAddr, VirtAddr};
+pub use self::range::{PhysAddrRange, VirtAddrRange};
 
 /// The size of a 4K page (4096 bytes).
 pub const PAGE_SIZE_4K: usize = 0x1000;
@@ -70,7 +72,7 @@ pub const fn is_aligned_4k(addr: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::va;
+    use crate::{va, va_range, VirtAddrRange};
 
     #[test]
     fn test_addr() {
@@ -94,5 +96,48 @@ mod tests {
         assert_eq!(addr.align_offset(align), 0x2000);
         assert_eq!(addr.align_down(align), va!(align * 5));
         assert_eq!(addr.align_up(align), va!(align * 6));
+    }
+
+    #[test]
+    fn test_range() {
+        let start = va!(0x1000);
+        let end = va!(0x2000);
+        let range = va_range!(start..end);
+        println!("range: {:?}", range);
+
+        assert!((0x1000..0x1000).is_empty());
+        assert!((0x1000..0xfff).is_empty());
+        assert!(!range.is_empty());
+
+        assert_eq!(range.start, start);
+        assert_eq!(range.end, end);
+        assert_eq!(range.size(), 0x1000);
+
+        assert!(range.contains(va!(0x1000)));
+        assert!(range.contains(va!(0x1080)));
+        assert!(!range.contains(va!(0x2000)));
+
+        assert!(!range.contains_range((0xfff..0x1fff).into()));
+        assert!(!range.contains_range((0xfff..0x2000).into()));
+        assert!(!range.contains_range((0xfff..0x2001).into()));
+        assert!(range.contains_range((0x1000..0x1fff).into()));
+        assert!(range.contains_range((0x1000..0x2000).into()));
+        assert!(!range.contains_range((0x1000..0x2001).into()));
+        assert!(range.contains_range((0x1001..0x1fff).into()));
+        assert!(range.contains_range((0x1001..0x2000).into()));
+        assert!(!range.contains_range((0x1001..0x2001).into()));
+        assert!(!range.contains_range(VirtAddrRange::from_start_size(0xfff.into(), 0x1)));
+        assert!(!range.contains_range(VirtAddrRange::from_start_size(0x2000.into(), 0x1)));
+
+        assert!(range.contained_in((0xfff..0x2000).into()));
+        assert!(range.contained_in((0x1000..0x2000).into()));
+        assert!(range.contained_in((0x1000..0x2001).into()));
+
+        assert!(!range.overlaps((0x800..0x1000).into()));
+        assert!(range.overlaps((0x800..0x1001).into()));
+        assert!(range.overlaps((0x1800..0x2000).into()));
+        assert!(range.overlaps((0x1800..0x2001).into()));
+        assert!(!range.overlaps((0x2000..0x2800).into()));
+        assert!(range.overlaps((0xfff..0x2001).into()));
     }
 }
