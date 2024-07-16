@@ -2,13 +2,18 @@
 #![doc = include_str!("../README.md")]
 
 mod addr;
+mod iter;
 mod range;
 
 pub use self::addr::{PhysAddr, VirtAddr};
+pub use self::iter::PageIter;
 pub use self::range::{PhysAddrRange, VirtAddrRange};
 
 /// The size of a 4K page (4096 bytes).
 pub const PAGE_SIZE_4K: usize = 0x1000;
+
+/// A [`PageIter`] for 4K pages.
+pub type PageIter4K<A> = PageIter<PAGE_SIZE_4K, A>;
 
 /// Align address downwards.
 ///
