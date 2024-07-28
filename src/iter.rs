@@ -36,7 +36,7 @@ where
     pub fn new(start: A, end: A) -> Option<Self> {
         if !PAGE_SIZE.is_power_of_two()
             || !is_aligned(Into::<usize>::into(start), PAGE_SIZE)
-            || !is_aligned(Into::<usize>::into(start), PAGE_SIZE)
+            || !is_aligned(Into::<usize>::into(end), PAGE_SIZE)
         {
             None
         } else {
