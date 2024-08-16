@@ -33,7 +33,7 @@ macro_rules! def_range {
             pub const fn from_start_size(start: $addr_type, size: usize) -> Self {
                 Self {
                     start,
-                    end: <$addr_type>::from(usize!(start) + size),
+                    end: <$addr_type>::from_usize(usize!(start) + size),
                 }
             }
 

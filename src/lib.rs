@@ -5,7 +5,7 @@ mod addr;
 mod iter;
 mod range;
 
-pub use self::addr::{PhysAddr, VirtAddr};
+pub use self::addr::{MemoryAddr, PhysAddr, VirtAddr};
 pub use self::iter::PageIter;
 pub use self::range::{PhysAddrRange, VirtAddrRange};
 
@@ -77,7 +77,7 @@ pub const fn is_aligned_4k(addr: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::{va, va_range, VirtAddrRange};
+    use crate::{addr::MemoryAddr, va, va_range, VirtAddrRange};
 
     #[test]
     fn test_addr() {
