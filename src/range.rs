@@ -220,7 +220,9 @@ where
     }
 }
 
+/// A range of virtual addresses.
 pub type VirtAddrRange = AddrRange<VirtAddr>;
+/// A range of physical addresses.
 pub type PhysAddrRange = AddrRange<PhysAddr>;
 
 /// Converts the given range expression into [`VirtAddrRange`].
