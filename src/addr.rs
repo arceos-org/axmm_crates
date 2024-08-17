@@ -19,11 +19,16 @@ impl<T> MemoryAddr for T where T: Copy + From<usize> + Into<usize> {}
 
 /// Creates a new address type by wrapping an `usize`.
 #[macro_export]
-macro_rules! def_addr_type {
-    ($name:ident, $desc:literal, $display_prefix:literal) => {
+macro_rules! def_addr_types {
+    (
+        $(#[$meta:meta])*
+        $vis:vis struct $name:ident(usize);
+
+        $($tt:tt)*
+    ) => {
         #[repr(transparent)]
-        #[doc = $desc]
         #[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+        $(#[$meta])*
         pub struct $name(usize);
 
         impl $name {
@@ -156,26 +161,34 @@ macro_rules! def_addr_type {
 
         impl core::fmt::Debug for $name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                f.write_fmt(format_args!(concat!($display_prefix, "{:#x}"), self.0))
+                f.write_fmt(format_args!(concat!(stringify!($name), "{:#x}"), self.0))
             }
         }
 
         impl core::fmt::LowerHex for $name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                f.write_fmt(format_args!(concat!($display_prefix, "{:#x}"), self.0))
+                f.write_fmt(format_args!(concat!(stringify!($name), "{:#x}"), self.0))
             }
         }
 
         impl core::fmt::UpperHex for $name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                f.write_fmt(format_args!(concat!($display_prefix, "{:#X}"), self.0))
+                f.write_fmt(format_args!(concat!(stringify!($name), "{:#X}"), self.0))
             }
         }
+
+        $crate::def_addr_types!($($tt)*);
     };
+    () => {};
 }
 
-def_addr_type!(PhysAddr, "A physical memory address.", "PA:");
-def_addr_type!(VirtAddr, "A virtual memory address.", "VA:");
+def_addr_types! {
+    #[doc = "A physical memory address."]
+    pub struct PhysAddr(usize);
+
+    #[doc = "A virtual memory address."]
+    pub struct VirtAddr(usize);
+}
 
 /// Alias for [`PhysAddr::from`].
 #[macro_export]
