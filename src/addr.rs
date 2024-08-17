@@ -161,19 +161,19 @@ macro_rules! def_addr_types {
 
         impl core::fmt::Debug for $name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                f.write_fmt(format_args!(concat!(stringify!($name), "{:#x}"), self.0))
+                f.write_fmt(format_args!(concat!(stringify!($name), "({:#x})"), self.0))
             }
         }
 
         impl core::fmt::LowerHex for $name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                f.write_fmt(format_args!(concat!(stringify!($name), "{:#x}"), self.0))
+                f.write_fmt(format_args!(concat!(stringify!($name), "({:#x})"), self.0))
             }
         }
 
         impl core::fmt::UpperHex for $name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                f.write_fmt(format_args!(concat!(stringify!($name), "{:#X}"), self.0))
+                f.write_fmt(format_args!(concat!(stringify!($name), "({:#X})"), self.0))
             }
         }
 
