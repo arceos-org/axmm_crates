@@ -183,10 +183,10 @@ macro_rules! def_usize_addr {
 }
 
 def_usize_addr! {
-    #[doc = "A physical memory address."]
+    /// A physical memory address.
     pub type PhysAddr;
 
-    #[doc = "A virtual memory address."]
+    /// A virtual memory address.
     pub type VirtAddr;
 }
 
