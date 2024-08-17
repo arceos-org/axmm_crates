@@ -182,6 +182,20 @@ macro_rules! def_usize_addr {
     () => {};
 }
 
+impl VirtAddr {
+    /// Converts the virtual address to a raw pointer.
+    #[inline]
+    pub const fn as_ptr(self) -> *const u8 {
+        self.0 as *const u8
+    }
+
+    /// Converts the virtual address to a mutable raw pointer.
+    #[inline]
+    pub const fn as_mut_ptr(self) -> *mut u8 {
+        self.0 as *mut u8
+    }
+}
+
 def_usize_addr! {
     /// A physical memory address.
     pub type PhysAddr;
