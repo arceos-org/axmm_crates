@@ -1,5 +1,3 @@
-use core::ops::{Add, AddAssign, Sub, SubAssign};
-
 use crate::{align_down, align_offset, align_up, is_aligned, PAGE_SIZE_4K};
 
 /// A trait for memory addresses.
@@ -12,102 +10,12 @@ pub trait MemoryAddr:
     // The address type should be convertible to and from `usize`.
     + From<usize>
     + Into<usize>
-    // The address type should support addition and subtraction with `usize`.
-    + Add<usize>
-    + AddAssign<usize>
-    + Sub<usize>
-    + SubAssign<usize>
-    // The address type should support comparison and equality checks. This implies `PartialEq`,
-    // `Eq`, and `PartialOrd`.
-    + Ord
-    // The address type should support default values.
-    + Default
 {
-    // No methods are required for now. Following are some provided methods.
-
-    /// Aligns the address downwards to the given alignment.
-    /// 
-    /// See the [`align_down`] function for more information.
-    #[inline]
-    fn align_down<U>(self, align: U) -> Self
-    where
-        U: Into<usize>,
-    {
-        Self::from(align_down(self.into(), align.into()))
-    }
-
-    /// Aligns the address upwards to the given alignment.
-    /// 
-    /// See the [`align_up`] function for more information.
-    #[inline]
-    fn align_up<U>(self, align: U) -> Self
-    where
-        U: Into<usize>,
-    {
-        Self::from(align_up(self.into(), align.into()))
-    }
-
-
-    /// Returns the offset of the address within the given alignment.
-    ///
-    /// See the [`align_offset`] function for more information.
-    #[inline]
-    fn align_offset<U>(self, align: U) -> usize
-    where
-        U: Into<usize>,
-    {
-        align_offset(self.into(), align.into())
-    }
-
-    /// Checks whether the address has the demanded alignment.
-    ///
-    /// See the [`is_aligned`] function for more information.
-    #[inline]
-    fn is_aligned<U>(self, align: U) -> bool
-    where
-        U: Into<usize>,
-    {
-        is_aligned(self.into(), align.into())
-    }
-
-    /// Aligns the address downwards to 4096 (bytes).
-    #[inline]
-    fn align_down_4k(self) -> Self {
-        Self::from(align_down(self.into(), PAGE_SIZE_4K))
-    }
-
-    /// Aligns the address upwards to 4096 (bytes).
-    #[inline]
-    fn align_up_4k(self) -> Self {
-        Self::from(align_up(self.into(), PAGE_SIZE_4K))
-    }
-
-    /// Returns the offset of the address within a 4K-sized page.
-    #[inline]
-    fn align_offset_4k(self) -> usize {
-        align_offset(self.into(), PAGE_SIZE_4K)
-    }
-
-    /// Checks whether the address is 4K-aligned.
-    #[inline]
-    fn is_aligned_4k(self) -> bool {
-        is_aligned(self.into(), PAGE_SIZE_4K)
-    }
+    // Empty for now.
 }
 
 /// Implement the `MemoryAddr` trait for any type that satisfies the required bounds.
-impl<T> MemoryAddr for T where
-    T: Copy
-        + From<usize>
-        + Into<usize>
-        + Add<usize>
-        + AddAssign<usize>
-        + Sub<usize>
-        + SubAssign<usize>
-        + Ord
-        + Default
-{
-}
+impl<T> MemoryAddr for T where T: Copy + From<usize> + Into<usize> {}
 
 /// Creates a new address type by wrapping an `usize`.
 #[macro_export]
@@ -119,16 +27,86 @@ macro_rules! def_addr_type {
         pub struct $name(usize);
 
         impl $name {
-            #[doc = concat!("Converts an `usize` to the address.")]
+            #[doc = "Converts an `usize` to the address."]
             #[inline]
             pub const fn from_usize(addr: usize) -> Self {
                 Self(addr)
             }
 
-            #[doc = concat!("Converts the address to an `usize`.")]
+            #[doc = "Converts the address to an `usize`."]
             #[inline]
             pub const fn as_usize(self) -> usize {
                 self.0
+            }
+        }
+
+        impl $name {
+            /// Aligns the address downwards to the given alignment.
+            ///
+            /// See the [`align_down`] function for more information.
+            #[inline]
+            pub fn align_down<U>(self, align: U) -> Self
+            where
+                U: Into<usize>,
+            {
+                Self::from_usize(align_down(self.0, align.into()))
+            }
+
+            /// Aligns the address upwards to the given alignment.
+            ///
+            /// See the [`align_up`] function for more information.
+            #[inline]
+            pub fn align_up<U>(self, align: U) -> Self
+            where
+                U: Into<usize>,
+            {
+                Self::from_usize(align_up(self.0, align.into()))
+            }
+
+            /// Returns the offset of the address within the given alignment.
+            ///
+            /// See the [`align_offset`] function for more information.
+            #[inline]
+            pub fn align_offset<U>(self, align: U) -> usize
+            where
+                U: Into<usize>,
+            {
+                align_offset(self.0, align.into())
+            }
+
+            /// Checks whether the address has the demanded alignment.
+            ///
+            /// See the [`is_aligned`] function for more information.
+            #[inline]
+            pub fn is_aligned<U>(self, align: U) -> bool
+            where
+                U: Into<usize>,
+            {
+                is_aligned(self.0, align.into())
+            }
+
+            /// Aligns the address downwards to 4096 (bytes).
+            #[inline]
+            pub const fn align_down_4k(self) -> Self {
+                Self::from_usize(align_down(self.0, PAGE_SIZE_4K))
+            }
+
+            /// Aligns the address upwards to 4096 (bytes).
+            #[inline]
+            pub const fn align_up_4k(self) -> Self {
+                Self::from_usize(align_up(self.0, PAGE_SIZE_4K))
+            }
+
+            /// Returns the offset of the address within a 4K-sized page.
+            #[inline]
+            pub const fn align_offset_4k(self) -> usize {
+                align_offset(self.0, PAGE_SIZE_4K)
+            }
+
+            /// Checks whether the address is 4K-aligned.
+            #[inline]
+            pub const fn is_aligned_4k(self) -> bool {
+                is_aligned(self.0, PAGE_SIZE_4K)
             }
         }
 
