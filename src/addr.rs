@@ -1,8 +1,8 @@
 use crate::{align_down, align_offset, align_up, is_aligned, PAGE_SIZE_4K};
 
-/// A trait for memory addresses.
+/// A trait for memory address types.
 ///
-/// Memory addresses here include both physical and virtual addresses, as well as any other
+/// Memory address types here include both physical and virtual addresses, as well as any other
 /// similar types like guest physical addresses in a hypervisor.
 pub trait MemoryAddr:
     // The address type should be trivially copyable. This implies `Clone`.
@@ -19,10 +19,10 @@ impl<T> MemoryAddr for T where T: Copy + From<usize> + Into<usize> {}
 
 /// Creates a new address type by wrapping an `usize`.
 #[macro_export]
-macro_rules! def_addr_types {
+macro_rules! def_usize_addr {
     (
         $(#[$meta:meta])*
-        $vis:vis struct $name:ident(usize);
+        $vis:vis type $name:ident;
 
         $($tt:tt)*
     ) => {
@@ -32,13 +32,13 @@ macro_rules! def_addr_types {
         pub struct $name(usize);
 
         impl $name {
-            #[doc = "Converts an `usize` to the address."]
+            #[doc = concat!("Converts an `usize` to an [`", stringify!($name), "`].")]
             #[inline]
             pub const fn from_usize(addr: usize) -> Self {
                 Self(addr)
             }
 
-            #[doc = "Converts the address to an `usize`."]
+            #[doc = concat!("Converts an [`", stringify!($name), "`] to an `usize`.")]
             #[inline]
             pub const fn as_usize(self) -> usize {
                 self.0
@@ -177,17 +177,17 @@ macro_rules! def_addr_types {
             }
         }
 
-        $crate::def_addr_types!($($tt)*);
+        $crate::def_usize_addr!($($tt)*);
     };
     () => {};
 }
 
-def_addr_types! {
+def_usize_addr! {
     #[doc = "A physical memory address."]
-    pub struct PhysAddr(usize);
+    pub type PhysAddr;
 
     #[doc = "A virtual memory address."]
-    pub struct VirtAddr(usize);
+    pub type VirtAddr;
 }
 
 /// Alias for [`PhysAddr::from`].
