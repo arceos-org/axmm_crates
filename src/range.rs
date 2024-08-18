@@ -13,7 +13,7 @@ macro_rules! usize {
 /// The range is inclusive on the start and exclusive on the end.
 /// It is empty if `start >= end`.
 ///
-/// ## Example
+/// # Example
 ///
 /// ```
 /// use memory_addr::{AddrRange, VirtAddr};
