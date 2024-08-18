@@ -214,6 +214,7 @@ impl<A, T> From<Range<T>> for AddrRange<A>
 where
     A: MemoryAddr + From<T>,
 {
+    #[inline]
     fn from(range: Range<T>) -> Self {
         Self::new(range.start.into(), range.end.into())
     }
