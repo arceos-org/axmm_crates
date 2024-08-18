@@ -12,6 +12,16 @@ macro_rules! usize {
 ///
 /// The range is inclusive on the start and exclusive on the end.
 /// It is empty if `start >= end`.
+///
+/// ## Example
+///
+/// ```
+/// use memory_addr::VirtAddrRange;
+///
+/// let range = VirtAddrRange::new(0x1000.into(), 0x2000.into());
+/// assert_eq!(range.start, 0x1000.into());
+/// assert_eq!(range.end, 0x2000.into());
+/// ```
 #[derive(Clone, Copy)]
 pub struct AddrRange<A: MemoryAddr> {
     /// The lower bound of the range (inclusive).

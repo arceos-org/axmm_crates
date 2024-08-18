@@ -18,6 +18,28 @@ pub trait MemoryAddr:
 impl<T> MemoryAddr for T where T: Copy + From<usize> + Into<usize> {}
 
 /// Creates a new address type by wrapping an `usize`.
+///
+/// For each `$vis type $name;`, this macro generates the following items:
+/// - Definition of the new address type `$name`, which contains a single private unnamed field of
+///   type `usize`.
+/// - Default implementations (i.e. derived implementations) for the following traits:
+///   - `Copy`, `Clone`,
+///   - `Default`,
+///   - `Ord`, `PartialOrd`, `Eq`, and `PartialEq`.
+/// - Implementations for the following traits:
+///   - `From<usize>`, `Into<usize>` (by implementing `From<$name> for usize`),
+///   - `Add<usize>`, `AddAssign<usize>`, `Sub<usize>`, `SubAssign<usize>`, as well as
+///   - `Debug`, `LowerHex`, and `UpperHex`, where
+///     - The implementation of `Debug` uses the format string `"$name({:#x})"` to print the address,
+///     - The implementation of `LowerHex` uses the same format string as `Debug`, and
+///     - The implementation of `UpperHex` uses `"$name({:#X})"`.
+/// - Two `const` methods to convert between the address type and `usize`:
+///   - `from_usize`, which converts an `usize` to the address type, and
+///   - `as_usize`, which converts the address type to an `usize`.
+/// - Methods to align the address, namely:
+///   - `align_down`, `align_up`, `align_offset`, `is_aligned`, `align_down_4k`, `align_up_4k`,
+///     `align_offset_4k`, and `is_aligned_4k`, which correspond to the functions with the same
+///     names in the crate root.
 #[macro_export]
 macro_rules! def_usize_addr {
     (
@@ -204,7 +226,7 @@ def_usize_addr! {
     pub type VirtAddr;
 }
 
-/// Alias for [`PhysAddr::from`].
+/// Alias for [`PhysAddr::from_usize`].
 #[macro_export]
 macro_rules! pa {
     ($addr:expr) => {
@@ -212,7 +234,7 @@ macro_rules! pa {
     };
 }
 
-/// Alias for [`VirtAddr::from`].
+/// Alias for [`VirtAddr::from_usize`].
 #[macro_export]
 macro_rules! va {
     ($addr:expr) => {
