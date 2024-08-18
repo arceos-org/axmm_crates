@@ -16,9 +16,9 @@ macro_rules! usize {
 /// ## Example
 ///
 /// ```
-/// use memory_addr::VirtAddrRange;
+/// use memory_addr::{AddrRange, VirtAddr};
 ///
-/// let range = VirtAddrRange::new(0x1000.into(), 0x2000.into());
+/// let range = AddrRange::<VirtAddr>::new(0x1000.into(), 0x2000.into());
 /// assert_eq!(range.start, 0x1000.into());
 /// assert_eq!(range.end, 0x2000.into());
 /// ```

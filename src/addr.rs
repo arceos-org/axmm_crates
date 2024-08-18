@@ -184,7 +184,7 @@ macro_rules! def_usize_addr {
 
 /// Creates implementations for the [`core::fmt::Debug`], [`core::fmt::LowerHex`], and
 /// [`core::fmt::UpperHex`] traits for the given address types.
-/// 
+///
 /// For each `$name = $format;`, this macro generates the following items:
 /// - An implementation of [`core::fmt::Debug`] for the address type `$name`, which formats the
 ///   address with `format_args!($format, format_args!("{:#x}", self.0))`,
@@ -192,12 +192,12 @@ macro_rules! def_usize_addr {
 ///   address in the same way as [`core::fmt::Debug`],
 /// - An implementation of [`core::fmt::UpperHex`] for the address type `$name`, which formats the
 ///   address with `format_args!($format, format_args!("{:#X}", self.0))`.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// use memory_addr::{PhysAddr, VirtAddr};
-/// 
+///
 /// assert_eq!(format!("{:?}", PhysAddr::from(0x1abc)), "PA:0x1abc");
 /// assert_eq!(format!("{:x}", VirtAddr::from(0x1abc)), "VA:0x1abc");
 /// assert_eq!(format!("{:X}", PhysAddr::from(0x1abc)), "PA:0x1ABC");
