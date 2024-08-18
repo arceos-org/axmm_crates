@@ -29,10 +29,6 @@ impl<T> MemoryAddr for T where T: Copy + From<usize> + Into<usize> {}
 /// - Implementations for the following traits:
 ///   - `From<usize>`, `Into<usize>` (by implementing `From<$name> for usize`),
 ///   - `Add<usize>`, `AddAssign<usize>`, `Sub<usize>`, `SubAssign<usize>`, as well as
-///   - `Debug`, `LowerHex`, and `UpperHex`, where
-///     - The implementation of `Debug` uses the format string `"$name({:#x})"` to print the address,
-///     - The implementation of `LowerHex` uses the same format string as `Debug`, and
-///     - The implementation of `UpperHex` uses `"$name({:#X})"`.
 /// - Two `const` methods to convert between the address type and `usize`:
 ///   - `from_usize`, which converts an `usize` to the address type, and
 ///   - `as_usize`, which converts the address type to an `usize`.
@@ -181,27 +177,72 @@ macro_rules! def_usize_addr {
             }
         }
 
+        $crate::def_usize_addr!($($tt)*);
+    };
+    () => {};
+}
+
+/// Creates implementations for the [`core::fmt::Debug`], [`core::fmt::LowerHex`], and
+/// [`core::fmt::UpperHex`] traits for the given address types.
+/// 
+/// For each `$name = $format;`, this macro generates the following items:
+/// - An implementation of [`core::fmt::Debug`] for the address type `$name`, which formats the
+///   address with `format_args!($format, format_args!("{:#x}", self.0))`,
+/// - An implementation of [`core::fmt::LowerHex`] for the address type `$name`, which formats the
+///   address in the same way as [`core::fmt::Debug`],
+/// - An implementation of [`core::fmt::UpperHex`] for the address type `$name`, which formats the
+///   address with `format_args!($format, format_args!("{:#X}", self.0))`.
+/// 
+/// # Example
+/// 
+/// ```
+/// use memory_addr::{PhysAddr, VirtAddr};
+/// 
+/// assert_eq!(format!("{:?}", PhysAddr::from(0x1abc)), "PA:0x1abc");
+/// assert_eq!(format!("{:x}", VirtAddr::from(0x1abc)), "VA:0x1abc");
+/// assert_eq!(format!("{:X}", PhysAddr::from(0x1abc)), "PA:0x1ABC");
+/// ```
+#[macro_export]
+macro_rules! def_usize_addr_formatter {
+    (
+        $name:ident = $format:literal;
+
+        $($tt:tt)*
+    ) => {
         impl core::fmt::Debug for $name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                f.write_fmt(format_args!(concat!(stringify!($name), "({:#x})"), self.0))
+                f.write_fmt(format_args!($format, format_args!("{:#x}", self.0)))
             }
         }
 
         impl core::fmt::LowerHex for $name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                f.write_fmt(format_args!(concat!(stringify!($name), "({:#x})"), self.0))
+                f.write_fmt(format_args!($format, format_args!("{:#x}", self.0)))
             }
         }
 
         impl core::fmt::UpperHex for $name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                f.write_fmt(format_args!(concat!(stringify!($name), "({:#X})"), self.0))
+                f.write_fmt(format_args!($format, format_args!("{:#X}", self.0)))
             }
         }
 
-        $crate::def_usize_addr!($($tt)*);
+        $crate::def_usize_addr_formatter!($($tt)*);
     };
     () => {};
+}
+
+def_usize_addr! {
+    /// A physical memory address.
+    pub type PhysAddr;
+
+    /// A virtual memory address.
+    pub type VirtAddr;
+}
+
+def_usize_addr_formatter! {
+    PhysAddr = "PA:{}";
+    VirtAddr = "VA:{}";
 }
 
 impl VirtAddr {
@@ -216,14 +257,6 @@ impl VirtAddr {
     pub const fn as_mut_ptr(self) -> *mut u8 {
         self.0 as *mut u8
     }
-}
-
-def_usize_addr! {
-    /// A physical memory address.
-    pub type PhysAddr;
-
-    /// A virtual memory address.
-    pub type VirtAddr;
 }
 
 /// Alias for [`PhysAddr::from_usize`].
