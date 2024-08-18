@@ -223,11 +223,30 @@ where
 /// Implementations of [`fmt::Debug`] for [`AddrRange`].
 impl<A> fmt::Debug for AddrRange<A>
 where
-    A: MemoryAddr,
+    A: MemoryAddr + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // todo: maybe use <A as fmt::Debug>::fmt?
-        write!(f, "{:#x?}..{:#x?}", usize!(self.start), usize!(self.end))
+        write!(f, "{:?}..{:?}", self.start, self.end)
+    }
+}
+
+/// Implementations of [`fmt::LowerHex`] for [`AddrRange`].
+impl<A> fmt::LowerHex for AddrRange<A>
+where
+    A: MemoryAddr + fmt::LowerHex,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:x}..{:x}", self.start, self.end)
+    }
+}
+
+/// Implementations of [`fmt::UpperHex`] for [`AddrRange`].
+impl<A> fmt::UpperHex for AddrRange<A>
+where
+    A: MemoryAddr + fmt::UpperHex,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:X}..{:X}", self.start, self.end)
     }
 }
 
