@@ -183,7 +183,7 @@ macro_rules! def_usize_addr {
 }
 
 /// Creates implementations for the [`core::fmt::Debug`], [`core::fmt::LowerHex`], and
-/// [`core::fmt::UpperHex`] traits for the given address types.
+/// [`core::fmt::UpperHex`] traits for the given address types defined by the [`def_usize_addr`].
 ///
 /// For each `$name = $format;`, this macro generates the following items:
 /// - An implementation of [`core::fmt::Debug`] for the address type `$name`, which formats the
