@@ -1,5 +1,3 @@
-use crate::{align_down, align_offset, align_up, is_aligned, PAGE_SIZE_4K};
-
 /// A trait for memory address types.
 ///
 /// Memory address types here include both physical and virtual addresses, as well as any other
@@ -36,6 +34,26 @@ impl<T> MemoryAddr for T where T: Copy + From<usize> + Into<usize> {}
 ///   - `align_down`, `align_up`, `align_offset`, `is_aligned`, `align_down_4k`, `align_up_4k`,
 ///     `align_offset_4k`, and `is_aligned_4k`, which correspond to the functions with the same
 ///     names in the crate root.
+///
+/// # Example
+///
+/// ```
+/// use memory_addr::def_usize_addr;
+///
+/// def_usize_addr! {
+///     /// A example address type.
+///     #[derive(Debug)]
+///     pub type ExampleAddr;
+/// }
+///
+/// fn main() {
+///     const EXAMPLE: ExampleAddr = ExampleAddr::from_usize(0x1234);
+///     const EXAMPLE_USIZE: usize = EXAMPLE.as_usize();
+///     assert_eq!(EXAMPLE_USIZE, 0x1234);
+///     assert_eq!(EXAMPLE.align_down(0x10usize), ExampleAddr::from_usize(0x1230));
+///     assert_eq!(EXAMPLE.align_up_4k(), ExampleAddr::from_usize(0x2000));
+/// }
+/// ```
 #[macro_export]
 macro_rules! def_usize_addr {
     (
@@ -72,7 +90,7 @@ macro_rules! def_usize_addr {
             where
                 U: Into<usize>,
             {
-                Self::from_usize(align_down(self.0, align.into()))
+                Self::from_usize($crate::align_down(self.0, align.into()))
             }
 
             /// Aligns the address upwards to the given alignment.
@@ -83,7 +101,7 @@ macro_rules! def_usize_addr {
             where
                 U: Into<usize>,
             {
-                Self::from_usize(align_up(self.0, align.into()))
+                Self::from_usize($crate::align_up(self.0, align.into()))
             }
 
             /// Returns the offset of the address within the given alignment.
@@ -94,7 +112,7 @@ macro_rules! def_usize_addr {
             where
                 U: Into<usize>,
             {
-                align_offset(self.0, align.into())
+                $crate::align_offset(self.0, align.into())
             }
 
             /// Checks whether the address has the demanded alignment.
@@ -105,31 +123,31 @@ macro_rules! def_usize_addr {
             where
                 U: Into<usize>,
             {
-                is_aligned(self.0, align.into())
+                $crate::is_aligned(self.0, align.into())
             }
 
             /// Aligns the address downwards to 4096 (bytes).
             #[inline]
             pub const fn align_down_4k(self) -> Self {
-                Self::from_usize(align_down(self.0, PAGE_SIZE_4K))
+                Self::from_usize($crate::align_down(self.0, $crate::PAGE_SIZE_4K))
             }
 
             /// Aligns the address upwards to 4096 (bytes).
             #[inline]
             pub const fn align_up_4k(self) -> Self {
-                Self::from_usize(align_up(self.0, PAGE_SIZE_4K))
+                Self::from_usize($crate::align_up(self.0, $crate::PAGE_SIZE_4K))
             }
 
             /// Returns the offset of the address within a 4K-sized page.
             #[inline]
             pub const fn align_offset_4k(self) -> usize {
-                align_offset(self.0, PAGE_SIZE_4K)
+                $crate::align_offset(self.0, $crate::PAGE_SIZE_4K)
             }
 
             /// Checks whether the address is 4K-aligned.
             #[inline]
             pub const fn is_aligned_4k(self) -> bool {
-                is_aligned(self.0, PAGE_SIZE_4K)
+                $crate::is_aligned(self.0, $crate::PAGE_SIZE_4K)
             }
         }
 
@@ -196,11 +214,22 @@ macro_rules! def_usize_addr {
 /// # Example
 ///
 /// ```
-/// use memory_addr::{PhysAddr, VirtAddr};
+/// use memory_addr::{PhysAddr, VirtAddr, def_usize_addr, def_usize_addr_formatter};
 ///
-/// assert_eq!(format!("{:?}", PhysAddr::from(0x1abc)), "PA:0x1abc");
-/// assert_eq!(format!("{:x}", VirtAddr::from(0x1abc)), "VA:0x1abc");
-/// assert_eq!(format!("{:X}", PhysAddr::from(0x1abc)), "PA:0x1ABC");
+/// def_usize_addr! {
+///     /// An example address type.
+///     pub type ExampleAddr;
+/// }
+/// 
+/// def_usize_addr_formatter! {
+///     ExampleAddr = "EA:{}";
+/// }
+/// 
+/// fn main() {
+///     assert_eq!(format!("{:?}", PhysAddr::from(0x1abc)), "PA:0x1abc");
+///     assert_eq!(format!("{:x}", VirtAddr::from(0x1abc)), "VA:0x1abc");
+///     assert_eq!(format!("{:X}", ExampleAddr::from(0x1abc)), "EA:0x1ABC");
+/// }
 /// ```
 #[macro_export]
 macro_rules! def_usize_addr_formatter {
