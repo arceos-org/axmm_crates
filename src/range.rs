@@ -40,11 +40,11 @@ where
     /// # Example
     ///
     /// ```
-    /// use memory_addr::{AddrRange, VirtAddr};
+    /// use memory_addr::AddrRange;
     ///
-    /// let range = AddrRange::<VirtAddr>::new(0x1000.into(), 0x2000.into());
-    /// assert_eq!(range.start, 0x1000.into());
-    /// assert_eq!(range.end, 0x2000.into());
+    /// let range = AddrRange::new(0x1000usize, 0x2000);
+    /// assert_eq!(range.start, 0x1000);
+    /// assert_eq!(range.end, 0x2000);
     /// ```
     #[inline]
     pub const fn new(start: A, end: A) -> Self {
@@ -56,11 +56,11 @@ where
     /// # Example
     ///
     /// ```
-    /// use memory_addr::{AddrRange, VirtAddr};
+    /// use memory_addr::AddrRange;
     ///
-    /// let range = AddrRange::<VirtAddr>::from_start_size(0x1000.into(), 0x1000);
-    /// assert_eq!(range.start, 0x1000.into());
-    /// assert_eq!(range.end, 0x2000.into());
+    /// let range = AddrRange::from_start_size(0x1000usize, 0x1000);
+    /// assert_eq!(range.start, 0x1000);
+    /// assert_eq!(range.end, 0x2000);
     /// ```
     #[inline]
     pub fn from_start_size(start: A, size: usize) -> Self {
@@ -75,11 +75,11 @@ where
     /// # Example
     ///
     /// ```
-    /// use memory_addr::{AddrRange, VirtAddr};
+    /// use memory_addr::AddrRange;
     ///
-    /// assert!(AddrRange::<VirtAddr>::from(0x1000..0x1000).is_empty());
-    /// assert!(AddrRange::<VirtAddr>::from(0x1000..0xfff).is_empty());
-    /// assert!(!AddrRange::<VirtAddr>::from(0x1000..0x2000).is_empty());
+    /// assert!(AddrRange::new(0x1000usize, 0x1000).is_empty());
+    /// assert!(AddrRange::new(0x1000usize, 0xfff).is_empty());
+    /// assert!(!AddrRange::new(0x1000usize, 0x2000).is_empty());
     /// ```
     #[inline]
     pub fn is_empty(self) -> bool {
@@ -91,10 +91,10 @@ where
     /// # Example
     ///
     /// ```
-    /// use memory_addr::{AddrRange, VirtAddr};
+    /// use memory_addr::AddrRange;
     ///
-    /// assert_eq!(AddrRange::<VirtAddr>::from(0x1000..0x1000).size(), 0);
-    /// assert_eq!(AddrRange::<VirtAddr>::from(0x1000..0x2000).size(), 0x1000);
+    /// assert_eq!(AddrRange::new(0x1000usize, 0x1000).size(), 0);
+    /// assert_eq!(AddrRange::new(0x1000usize, 0x2000).size(), 0x1000);
     /// ```
     #[inline]
     pub fn size(self) -> usize {
@@ -106,13 +106,13 @@ where
     /// # Example
     ///
     /// ```
-    /// use memory_addr::{AddrRange, VirtAddr};
+    /// use memory_addr::AddrRange;
     ///
-    /// let range = AddrRange::<VirtAddr>::new(0x1000.into(), 0x2000.into());
-    /// assert!(!range.contains(0xfff.into()));
-    /// assert!(range.contains(0x1000.into()));
-    /// assert!(range.contains(0x1fff.into()));
-    /// assert!(!range.contains(0x2000.into()));
+    /// let range = AddrRange::new(0x1000usize, 0x2000);
+    /// assert!(!range.contains(0xfff));
+    /// assert!(range.contains(0x1000));
+    /// assert!(range.contains(0x1fff));
+    /// assert!(!range.contains(0x2000));
     /// ```
     #[inline]
     pub fn contains(self, addr: A) -> bool {
@@ -124,16 +124,15 @@ where
     /// # Example
     ///
     /// ```
-    /// use memory_addr::{AddrRange, VirtAddr};
-    /// type VirtAddrRange = AddrRange<VirtAddr>; // as in `memory_addr`
+    /// use memory_addr::AddrRange;
     ///
-    /// let range = VirtAddrRange::new(0x1000.into(), 0x2000.into());
-    /// assert!(!range.contains_range(VirtAddrRange::from(0x0..0xfff)));
-    /// assert!(!range.contains_range(VirtAddrRange::from(0xfff..0x1fff)));
-    /// assert!(range.contains_range(VirtAddrRange::from(0x1001..0x1fff)));
-    /// assert!(range.contains_range(VirtAddrRange::from(0x1000..0x2000)));
-    /// assert!(!range.contains_range(VirtAddrRange::from(0x1001..0x2001)));
-    /// assert!(!range.contains_range(VirtAddrRange::from(0x2001..0x3001)));
+    /// let range = AddrRange::new(0x1000usize, 0x2000);
+    /// assert!(!range.contains_range(AddrRange::from(0x0usize..0xfff)));
+    /// assert!(!range.contains_range(AddrRange::from(0xfffusize..0x1fff)));
+    /// assert!(range.contains_range(AddrRange::from(0x1001usize..0x1fff)));
+    /// assert!(range.contains_range(AddrRange::from(0x1000usize..0x2000)));
+    /// assert!(!range.contains_range(AddrRange::from(0x1001usize..0x2001)));
+    /// assert!(!range.contains_range(AddrRange::from(0x2001usize..0x3001)));
     /// ```
     #[inline]
     pub fn contains_range(self, other: Self) -> bool {
@@ -145,14 +144,13 @@ where
     /// # Example
     ///
     /// ```
-    /// use memory_addr::{AddrRange, VirtAddr};
-    /// type VirtAddrRange = AddrRange<VirtAddr>; // as in `memory_addr`
+    /// use memory_addr::AddrRange;
     ///
-    /// let range = VirtAddrRange::new(0x1000.into(), 0x2000.into());
-    /// assert!(!range.contained_in(VirtAddrRange::from(0xfff..0x1fff)));
-    /// assert!(!range.contained_in(VirtAddrRange::from(0x1001..0x2001)));
-    /// assert!(range.contained_in(VirtAddrRange::from(0xfff..0x2001)));
-    /// assert!(range.contained_in(VirtAddrRange::from(0x1000..0x2000)));
+    /// let range = AddrRange::new(0x1000usize, 0x2000);
+    /// assert!(!range.contained_in(AddrRange::from(0xfffusize..0x1fff)));
+    /// assert!(!range.contained_in(AddrRange::from(0x1001usize..0x2001)));
+    /// assert!(range.contained_in(AddrRange::from(0xfffusize..0x2001)));
+    /// assert!(range.contained_in(AddrRange::from(0x1000usize..0x2000)));
     /// ```
     #[inline]
     pub fn contained_in(self, other: Self) -> bool {
@@ -164,16 +162,15 @@ where
     /// # Example
     ///
     /// ```
-    /// use memory_addr::{AddrRange, VirtAddr};
-    /// type VirtAddrRange = AddrRange<VirtAddr>; // as in `memory_addr`
+    /// use memory_addr::AddrRange;
     ///
-    /// let range = VirtAddrRange::new(0x1000.into(), 0x2000.into());
-    /// assert!(!range.overlaps(VirtAddrRange::from(0xfff..0xfff)));
-    /// assert!(!range.overlaps(VirtAddrRange::from(0x2000..0x2000)));
-    /// assert!(!range.overlaps(VirtAddrRange::from(0xfff..0x1000)));
-    /// assert!(range.overlaps(VirtAddrRange::from(0xfff..0x1001)));
-    /// assert!(range.overlaps(VirtAddrRange::from(0x1fff..0x2001)));
-    /// assert!(range.overlaps(VirtAddrRange::from(0xfff..0x2001)));
+    /// let range = AddrRange::new(0x1000usize, 0x2000usize);
+    /// assert!(!range.overlaps(AddrRange::from(0xfffusize..0xfff)));
+    /// assert!(!range.overlaps(AddrRange::from(0x2000usize..0x2000)));
+    /// assert!(!range.overlaps(AddrRange::from(0xfffusize..0x1000)));
+    /// assert!(range.overlaps(AddrRange::from(0xfffusize..0x1001)));
+    /// assert!(range.overlaps(AddrRange::from(0x1fffusize..0x2001)));
+    /// assert!(range.overlaps(AddrRange::from(0xfffusize..0x2001)));
     /// ```
     #[inline]
     pub fn overlaps(self, other: Self) -> bool {
