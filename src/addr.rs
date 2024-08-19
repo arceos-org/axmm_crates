@@ -83,8 +83,6 @@ macro_rules! def_usize_addr {
 
         impl $name {
             /// Aligns the address downwards to the given alignment.
-            ///
-            /// See the [`align_down`] function for more information.
             #[inline]
             pub fn align_down<U>(self, align: U) -> Self
             where
@@ -94,8 +92,6 @@ macro_rules! def_usize_addr {
             }
 
             /// Aligns the address upwards to the given alignment.
-            ///
-            /// See the [`align_up`] function for more information.
             #[inline]
             pub fn align_up<U>(self, align: U) -> Self
             where
@@ -105,8 +101,6 @@ macro_rules! def_usize_addr {
             }
 
             /// Returns the offset of the address within the given alignment.
-            ///
-            /// See the [`align_offset`] function for more information.
             #[inline]
             pub fn align_offset<U>(self, align: U) -> usize
             where
@@ -116,8 +110,6 @@ macro_rules! def_usize_addr {
             }
 
             /// Checks whether the address has the demanded alignment.
-            ///
-            /// See the [`is_aligned`] function for more information.
             #[inline]
             pub fn is_aligned<U>(self, align: U) -> bool
             where
