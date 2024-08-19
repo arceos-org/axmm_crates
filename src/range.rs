@@ -16,11 +16,11 @@ macro_rules! usize {
 /// # Example
 ///
 /// ```
-/// use memory_addr::{AddrRange, VirtAddr};
+/// use memory_addr::AddrRange;
 ///
-/// let range = AddrRange::<VirtAddr>::new(0x1000.into(), 0x2000.into());
-/// assert_eq!(range.start, 0x1000.into());
-/// assert_eq!(range.end, 0x2000.into());
+/// let range = AddrRange::<usize>::new(0x1000, 0x2000);
+/// assert_eq!(range.start, 0x1000);
+/// assert_eq!(range.end, 0x2000);
 /// ```
 #[derive(Clone, Copy)]
 pub struct AddrRange<A: MemoryAddr> {
