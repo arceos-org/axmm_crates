@@ -220,11 +220,11 @@ macro_rules! def_usize_addr {
 ///     /// An example address type.
 ///     pub type ExampleAddr;
 /// }
-/// 
+///
 /// def_usize_addr_formatter! {
 ///     ExampleAddr = "EA:{}";
 /// }
-/// 
+///
 /// fn main() {
 ///     assert_eq!(format!("{:?}", PhysAddr::from(0x1abc)), "PA:0x1abc");
 ///     assert_eq!(format!("{:x}", VirtAddr::from(0x1abc)), "VA:0x1abc");
