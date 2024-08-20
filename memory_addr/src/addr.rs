@@ -8,12 +8,34 @@ pub trait MemoryAddr:
     // The address type should be convertible to and from `usize`.
     + From<usize>
     + Into<usize>
+    // The address type should be comparable.
+    + core::cmp::Ord
+    // The address type should support arithmetic operations with `usize`.
+    + core::ops::Add<usize, Output = Self>
+    + core::ops::AddAssign<usize>
+    + core::ops::Sub<usize, Output = Self>
+    + core::ops::SubAssign<usize>
+    + core::ops::Sub<Self, Output = usize>
+    // The address type should have a default value.
+    + Default
 {
     // Empty for now.
 }
 
 /// Implement the `MemoryAddr` trait for any type that satisfies the required bounds.
-impl<T> MemoryAddr for T where T: Copy + From<usize> + Into<usize> {}
+impl<T> MemoryAddr for T where
+    T: Copy
+        + From<usize>
+        + Into<usize>
+        + core::cmp::Ord
+        + core::ops::Add<usize, Output = Self>
+        + core::ops::AddAssign<usize>
+        + core::ops::Sub<usize, Output = Self>
+        + core::ops::SubAssign<usize>
+        + core::ops::Sub<Self, Output = usize>
+        + Default
+{
+}
 
 /// Creates a new address type by wrapping an `usize`.
 ///
@@ -184,6 +206,14 @@ macro_rules! def_usize_addr {
             #[inline]
             fn sub_assign(&mut self, rhs: usize) {
                 self.0 -= rhs;
+            }
+        }
+
+        impl core::ops::Sub<$name> for $name {
+            type Output = usize;
+            #[inline]
+            fn sub(self, rhs: $name) -> usize {
+                self.0 - rhs.0
             }
         }
 

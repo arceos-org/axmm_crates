@@ -9,7 +9,7 @@ use crate::{MappingBackend, MappingError, MappingResult, MemoryArea};
 
 /// A container that maintains memory mappings ([`MemoryArea`]).
 pub struct MemorySet<B: MappingBackend> {
-    areas: BTreeMap<usize, MemoryArea<B>>,
+    areas: BTreeMap<B::Addr, MemoryArea<B>>,
 }
 
 impl<B: MappingBackend> MemorySet<B> {
@@ -37,12 +37,12 @@ impl<B: MappingBackend> MemorySet<B> {
 
     /// Returns whether the given address range overlaps with any existing area.
     pub fn overlaps(&self, range: AddrRange<B::Addr>) -> bool {
-        if let Some((_, before)) = self.areas.range(..range.start.into()).last() {
+        if let Some((_, before)) = self.areas.range(..range.start).last() {
             if before.va_range().overlaps(range) {
                 return true;
             }
         }
-        if let Some((_, after)) = self.areas.range(range.start.into()..).next() {
+        if let Some((_, after)) = self.areas.range(range.start..).next() {
             if after.va_range().overlaps(range) {
                 return true;
             }
@@ -52,7 +52,7 @@ impl<B: MappingBackend> MemorySet<B> {
 
     /// Finds the memory area that contains the given address.
     pub fn find(&self, addr: B::Addr) -> Option<&MemoryArea<B>> {
-        let candidate = self.areas.range(..=addr.into()).last().map(|(_, a)| a);
+        let candidate = self.areas.range(..=addr).last().map(|(_, a)| a);
         candidate.filter(|a| a.va_range().contains(addr))
     }
 
@@ -70,16 +70,15 @@ impl<B: MappingBackend> MemorySet<B> {
         limit: AddrRange<B::Addr>,
     ) -> Option<B::Addr> {
         // brute force: try each area's end address as the start.
-        let hint: usize = hint.into();
-        let mut last_end = hint.max(limit.start.into());
+        let mut last_end = hint.max(limit.start);
         for (addr, area) in self.areas.iter() {
             if last_end + size <= *addr {
-                return Some(last_end.into());
+                return Some(last_end);
             }
-            last_end = area.end().into();
+            last_end = area.end();
         }
-        if last_end + size <= limit.end.into() {
-            Some(last_end.into())
+        if last_end + size <= limit.end {
+            Some(last_end)
         } else {
             None
         }
@@ -112,7 +111,7 @@ impl<B: MappingBackend> MemorySet<B> {
         }
 
         area.map_area(page_table)?;
-        assert!(self.areas.insert(area.start().into(), area).is_none());
+        assert!(self.areas.insert(area.start(), area).is_none());
         Ok(())
     }
 
@@ -133,8 +132,7 @@ impl<B: MappingBackend> MemorySet<B> {
             return Ok(());
         }
 
-        let start: usize = start.into();
-        let end = range.end.into();
+        let end = range.end;
 
         // Unmap entire areas that are contained by the range.
         self.areas.retain(|_, area| {
@@ -147,17 +145,17 @@ impl<B: MappingBackend> MemorySet<B> {
         });
 
         // Shrink right if the area intersects with the left boundary.
-        if let Some((before_start, before)) = self.areas.range_mut(..start).last() {
-            let before_end = before.end().into();
+        if let Some((&before_start, before)) = self.areas.range_mut(..start).last() {
+            let before_end = before.end();
             if before_end > start {
                 if before_end <= end {
                     // the unmapped area is at the end of `before`.
                     before.shrink_right(start - before_start, page_table)?;
                 } else {
                     // the unmapped area is in the middle `before`, need to split.
-                    let right_part = before.split(end.into()).unwrap();
+                    let right_part = before.split(end).unwrap();
                     before.shrink_right(start - before_start, page_table)?;
-                    assert_eq!(right_part.start().into(), end);
+                    assert_eq!(right_part.start().into(), Into::<usize>::into(end));
                     self.areas.insert(end, right_part);
                 }
             }
@@ -165,12 +163,12 @@ impl<B: MappingBackend> MemorySet<B> {
 
         // Shrink left if the area intersects with the right boundary.
         if let Some((&after_start, after)) = self.areas.range_mut(start..).next() {
-            let after_end = after.end().into();
+            let after_end = after.end();
             if after_start < end {
                 // the unmapped area is at the start of `after`.
                 let mut new_area = self.areas.remove(&after_start).unwrap();
                 new_area.shrink_left(after_end - end, page_table)?;
-                assert_eq!(new_area.start().into(), end);
+                assert_eq!(new_area.start().into(), Into::<usize>::into(end));
                 self.areas.insert(end, new_area);
             }
         }
@@ -203,12 +201,11 @@ impl<B: MappingBackend> MemorySet<B> {
         update_flags: impl Fn(B::Flags) -> Option<B::Flags>,
         page_table: &mut B::PageTable,
     ) -> MappingResult {
-        let start = start.into();
         let end = start + size;
         let mut to_insert = Vec::new();
         for (area_start, area) in self.areas.iter_mut() {
             let area_start = *area_start;
-            let area_end = area.end().into();
+            let area_end = area.end();
 
             if let Some(new_flags) = update_flags(area.flags()) {
                 if area_start >= end {
@@ -227,32 +224,32 @@ impl<B: MappingBackend> MemorySet<B> {
                 } else if area_start < start && area_end > end {
                     //        [ prot ]
                     // [ left | area | right ]
-                    let right_part = area.split(end.into()).unwrap();
-                    area.set_end(start.into());
+                    let right_part = area.split(end).unwrap();
+                    area.set_end(start);
 
                     let mut middle_part =
-                        MemoryArea::new(start.into(), size, area.flags(), area.backend().clone());
+                        MemoryArea::new(start, size, area.flags(), area.backend().clone());
                     middle_part.protect_area(new_flags, page_table)?;
                     middle_part.set_flags(new_flags);
 
-                    to_insert.push((right_part.start().into(), right_part));
-                    to_insert.push((middle_part.start().into(), middle_part));
+                    to_insert.push((right_part.start(), right_part));
+                    to_insert.push((middle_part.start(), middle_part));
                 } else if area_end > end {
                     // [    prot ]
                     //   [  area | right ]
-                    let right_part = area.split(end.into()).unwrap();
+                    let right_part = area.split(end).unwrap();
                     area.protect_area(new_flags, page_table)?;
                     area.set_flags(new_flags);
 
-                    to_insert.push((right_part.start().into(), right_part));
+                    to_insert.push((right_part.start(), right_part));
                 } else {
                     //        [ prot    ]
                     // [ left |  area ]
-                    let mut right_part = area.split(start.into()).unwrap();
+                    let mut right_part = area.split(start).unwrap();
                     right_part.protect_area(new_flags, page_table)?;
                     right_part.set_flags(new_flags);
 
-                    to_insert.push((right_part.start().into(), right_part));
+                    to_insert.push((right_part.start(), right_part));
                 }
             }
         }

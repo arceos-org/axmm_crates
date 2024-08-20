@@ -2,12 +2,6 @@ use core::{fmt, ops::Range};
 
 use crate::{MemoryAddr, PhysAddr, VirtAddr};
 
-macro_rules! usize {
-    ($addr:expr) => {
-        Into::<usize>::into($addr)
-    };
-}
-
 /// A range of a given memory address type `A`.
 ///
 /// The range is inclusive on the start and exclusive on the end.
@@ -22,7 +16,7 @@ macro_rules! usize {
 /// assert_eq!(range.start, 0x1000);
 /// assert_eq!(range.end, 0x2000);
 /// ```
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct AddrRange<A: MemoryAddr> {
     /// The lower bound of the range (inclusive).
     pub start: A,
@@ -66,7 +60,7 @@ where
     pub fn from_start_size(start: A, size: usize) -> Self {
         Self {
             start,
-            end: A::from(usize!(start) + size),
+            end: start + size,
         }
     }
 
@@ -83,7 +77,7 @@ where
     /// ```
     #[inline]
     pub fn is_empty(self) -> bool {
-        usize!(self.start) >= usize!(self.end)
+        self.start >= self.end
     }
 
     /// Returns the size of the range.
@@ -98,7 +92,7 @@ where
     /// ```
     #[inline]
     pub fn size(self) -> usize {
-        usize!(self.end) - usize!(self.start)
+        self.end - self.start
     }
 
     /// Checks if the range contains the given address.
@@ -116,7 +110,7 @@ where
     /// ```
     #[inline]
     pub fn contains(self, addr: A) -> bool {
-        usize!(self.start) <= usize!(addr) && usize!(addr) < usize!(self.end)
+        self.start <= addr && addr < self.end
     }
 
     /// Checks if the range contains the given address range.
@@ -136,7 +130,7 @@ where
     /// ```
     #[inline]
     pub fn contains_range(self, other: Self) -> bool {
-        usize!(self.start) <= usize!(other.start) && usize!(other.end) <= usize!(self.end)
+        self.start <= other.start && other.end <= self.end
     }
 
     /// Checks if the range is contained in the given address range.
@@ -174,38 +168,9 @@ where
     /// ```
     #[inline]
     pub fn overlaps(self, other: Self) -> bool {
-        usize!(self.start) < usize!(other.end) && usize!(other.start) < usize!(self.end)
+        self.start < other.end && other.start < self.end
     }
 }
-
-/// Implementations of [`Default`] for [`AddrRange`].
-///
-/// The default value is an empty range `0..0`.
-impl<A> Default for AddrRange<A>
-where
-    A: MemoryAddr,
-{
-    #[inline]
-    fn default() -> Self {
-        Self::new(0.into(), 0.into())
-    }
-}
-
-/// Implementations of [`PartialEq`] for [`AddrRange`].
-///
-/// Two ranges are equal iff their start and end addresses are equal.
-impl<A> PartialEq for AddrRange<A>
-where
-    A: MemoryAddr,
-{
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        usize!(self.start) == usize!(other.start) && usize!(self.end) == usize!(other.end)
-    }
-}
-
-/// Implementations of [`Eq`] for [`AddrRange`].
-impl<A> Eq for AddrRange<A> where A: MemoryAddr {}
 
 /// Implementations of [`From`] for [`AddrRange`] and [`Range`].
 ///
