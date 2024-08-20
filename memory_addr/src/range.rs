@@ -16,7 +16,7 @@ use crate::{MemoryAddr, PhysAddr, VirtAddr};
 /// assert_eq!(range.start, 0x1000);
 /// assert_eq!(range.end, 0x2000);
 /// ```
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct AddrRange<A: MemoryAddr> {
     /// The lower bound of the range (inclusive).
     pub start: A,
@@ -60,7 +60,7 @@ where
     pub fn from_start_size(start: A, size: usize) -> Self {
         Self {
             start,
-            end: start + size,
+            end: start.offset(size as isize),
         }
     }
 
@@ -92,7 +92,7 @@ where
     /// ```
     #[inline]
     pub fn size(self) -> usize {
-        self.end - self.start
+        self.end.sub_addr(self.start)
     }
 
     /// Checks if the range contains the given address.
@@ -182,6 +182,22 @@ where
     #[inline]
     fn from(range: Range<T>) -> Self {
         Self::new(range.start.into(), range.end.into())
+    }
+}
+
+/// Implementations of [`Default`] for [`AddrRange`].
+///
+/// The default value is an empty range `0..0`.
+impl<A> Default for AddrRange<A>
+where
+    A: MemoryAddr,
+{
+    #[inline]
+    fn default() -> Self {
+        Self {
+            start: 0.into(),
+            end: 0.into(),
+        }
     }
 }
 

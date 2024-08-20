@@ -1,6 +1,6 @@
 use core::fmt;
 
-use memory_addr::AddrRange;
+use memory_addr::{AddrRange, MemoryAddr};
 
 use crate::{MappingBackend, MappingError, MappingResult};
 
@@ -107,7 +107,7 @@ impl<B: MappingBackend> MemoryArea<B> {
         if !self.backend.unmap(self.start(), unmap_size, page_table) {
             return Err(MappingError::BadState);
         }
-        self.va_range.start += unmap_size;
+        self.va_range.start = self.va_range.start.offset(unmap_size as isize);
         Ok(())
     }
 
@@ -121,13 +121,14 @@ impl<B: MappingBackend> MemoryArea<B> {
         page_table: &mut B::PageTable,
     ) -> MappingResult {
         let unmap_size = self.size() - new_size;
-        if !self
-            .backend
-            .unmap(self.start() + new_size, unmap_size, page_table)
-        {
+        if !self.backend.unmap(
+            self.start().offset(new_size as isize),
+            unmap_size,
+            page_table,
+        ) {
             return Err(MappingError::BadState);
         }
-        self.va_range.end -= unmap_size;
+        self.va_range.end = self.va_range.end.offset(-(unmap_size as isize));
         Ok(())
     }
 
@@ -141,7 +142,12 @@ impl<B: MappingBackend> MemoryArea<B> {
     pub(crate) fn split(&mut self, pos: B::Addr) -> Option<Self> {
         // todo: is it a bug when `pos == end - 1`?
         if self.start() < pos && pos < self.end() {
-            let new_area = Self::new(pos, self.end() - pos, self.flags, self.backend.clone());
+            let new_area = Self::new(
+                pos,
+                self.end().sub_addr(pos),
+                self.flags,
+                self.backend.clone(),
+            );
             self.va_range.end = pos;
             Some(new_area)
         } else {

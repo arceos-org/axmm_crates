@@ -3,7 +3,7 @@ use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use core::fmt;
 
-use memory_addr::AddrRange;
+use memory_addr::{AddrRange, MemoryAddr};
 
 use crate::{MappingBackend, MappingError, MappingResult, MemoryArea};
 
@@ -71,13 +71,13 @@ impl<B: MappingBackend> MemorySet<B> {
     ) -> Option<B::Addr> {
         // brute force: try each area's end address as the start.
         let mut last_end = hint.max(limit.start);
-        for (addr, area) in self.areas.iter() {
-            if last_end + size <= *addr {
+        for (&addr, area) in self.areas.iter() {
+            if last_end.offset(size as isize) <= addr {
                 return Some(last_end);
             }
             last_end = area.end();
         }
-        if last_end + size <= limit.end {
+        if last_end.offset(size as isize) <= limit.end {
             Some(last_end)
         } else {
             None
@@ -150,11 +150,11 @@ impl<B: MappingBackend> MemorySet<B> {
             if before_end > start {
                 if before_end <= end {
                     // the unmapped area is at the end of `before`.
-                    before.shrink_right(start - before_start, page_table)?;
+                    before.shrink_right(start.sub_addr(before_start), page_table)?;
                 } else {
                     // the unmapped area is in the middle `before`, need to split.
                     let right_part = before.split(end).unwrap();
-                    before.shrink_right(start - before_start, page_table)?;
+                    before.shrink_right(start.sub_addr(before_start), page_table)?;
                     assert_eq!(right_part.start().into(), Into::<usize>::into(end));
                     self.areas.insert(end, right_part);
                 }
@@ -167,7 +167,7 @@ impl<B: MappingBackend> MemorySet<B> {
             if after_start < end {
                 // the unmapped area is at the start of `after`.
                 let mut new_area = self.areas.remove(&after_start).unwrap();
-                new_area.shrink_left(after_end - end, page_table)?;
+                new_area.shrink_left(after_end.sub_addr(end), page_table)?;
                 assert_eq!(new_area.start().into(), Into::<usize>::into(end));
                 self.areas.insert(end, new_area);
             }
@@ -201,7 +201,7 @@ impl<B: MappingBackend> MemorySet<B> {
         update_flags: impl Fn(B::Flags) -> Option<B::Flags>,
         page_table: &mut B::PageTable,
     ) -> MappingResult {
-        let end = start + size;
+        let end = start.offset(size as isize);
         let mut to_insert = Vec::new();
         for (area_start, area) in self.areas.iter_mut() {
             let area_start = *area_start;

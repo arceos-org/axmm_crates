@@ -1,3 +1,5 @@
+use core::cmp::Ord;
+
 /// A trait for memory address types.
 ///
 /// Memory address types here include both physical and virtual addresses, as well as any other
@@ -9,33 +11,89 @@ pub trait MemoryAddr:
     + From<usize>
     + Into<usize>
     // The address type should be comparable.
-    + core::cmp::Ord
-    // The address type should support arithmetic operations with `usize`.
-    + core::ops::Add<usize, Output = Self>
-    + core::ops::AddAssign<usize>
-    + core::ops::Sub<usize, Output = Self>
-    + core::ops::SubAssign<usize>
-    + core::ops::Sub<Self, Output = usize>
-    // The address type should have a default value.
-    + Default
+    + Ord
 {
-    // Empty for now.
+    // No required methods for now. Following are some utility methods.
+
+    // About alignment:
+
+    /// Aligns the address downwards to the given alignment.
+    #[inline]
+    fn align_down<U>(self, align: U) -> Self
+    where
+        U: Into<usize>,
+    {
+        Self::from(crate::align_down(self.into(), align.into()))
+    }
+
+    /// Aligns the address upwards to the given alignment.
+    #[inline]
+    fn align_up<U>(self, align: U) -> Self
+    where
+        U: Into<usize>,
+    {
+        Self::from(crate::align_up(self.into(), align.into()))
+    }
+
+    /// Returns the offset of the address within the given alignment.
+    #[inline]
+    fn align_offset<U>(self, align: U) -> usize
+    where
+        U: Into<usize>,
+    {
+        crate::align_offset(self.into(), align.into())
+    }
+
+    /// Checks whether the address has the demanded alignment.
+    #[inline]
+    fn is_aligned<U>(self, align: U) -> bool
+    where
+        U: Into<usize>,
+    {
+        crate::is_aligned(self.into(), align.into())
+    }
+
+    /// Aligns the address downwards to 4096 (bytes).
+    #[inline]
+    fn align_down_4k(self) -> Self {
+        Self::from(crate::align_down(self.into(), crate::PAGE_SIZE_4K))
+    }
+
+    /// Aligns the address upwards to 4096 (bytes).
+    #[inline]
+    fn align_up_4k(self) -> Self {
+        Self::from(crate::align_up(self.into(), crate::PAGE_SIZE_4K))
+    }
+
+    /// Returns the offset of the address within a 4K-sized page.
+    #[inline]
+    fn align_offset_4k(self) -> usize {
+        crate::align_offset(self.into(), crate::PAGE_SIZE_4K)
+    }
+
+    /// Checks whether the address is 4K-aligned.
+    #[inline]
+    fn is_aligned_4k(self) -> bool {
+        crate::is_aligned(self.into(), crate::PAGE_SIZE_4K)
+    }
+
+    // About address modification:
+
+    /// Adds the given signed offset to the address.
+    #[inline]
+    fn offset(self, offset: isize) -> Self {
+        Self::from(usize::wrapping_add_signed(self.into(), offset))
+    }
+
+    /// Gets the distance between two addresses.
+    #[inline]
+    fn sub_addr(self, base: Self) -> usize {
+        usize::wrapping_sub(self.into(), base.into())
+    }
 }
 
-/// Implement the `MemoryAddr` trait for any type that satisfies the required bounds.
-impl<T> MemoryAddr for T where
-    T: Copy
-        + From<usize>
-        + Into<usize>
-        + core::cmp::Ord
-        + core::ops::Add<usize, Output = Self>
-        + core::ops::AddAssign<usize>
-        + core::ops::Sub<usize, Output = Self>
-        + core::ops::SubAssign<usize>
-        + core::ops::Sub<Self, Output = usize>
-        + Default
-{
-}
+// Implement the `MemoryAddr` trait for any type that is `Copy`, `From<usize>`, `Into<usize>`, and `Ord`.
+impl<T> MemoryAddr for T where T: Copy + From<usize> + Into<usize> + Ord {}
 
 /// Creates a new address type by wrapping an `usize`.
 ///
@@ -52,15 +110,11 @@ impl<T> MemoryAddr for T where
 /// - Two `const` methods to convert between the address type and `usize`:
 ///   - `from_usize`, which converts an `usize` to the address type, and
 ///   - `as_usize`, which converts the address type to an `usize`.
-/// - Methods to align the address, namely:
-///   - `align_down`, `align_up`, `align_offset`, `is_aligned`, `align_down_4k`, `align_up_4k`,
-///     `align_offset_4k`, and `is_aligned_4k`, which correspond to the functions with the same
-///     names in the crate root.
 ///
 /// # Example
 ///
 /// ```
-/// use memory_addr::def_usize_addr;
+/// use memory_addr::{def_usize_addr, MemoryAddr};
 ///
 /// def_usize_addr! {
 ///     /// A example address type.
@@ -100,68 +154,6 @@ macro_rules! def_usize_addr {
             #[inline]
             pub const fn as_usize(self) -> usize {
                 self.0
-            }
-        }
-
-        impl $name {
-            /// Aligns the address downwards to the given alignment.
-            #[inline]
-            pub fn align_down<U>(self, align: U) -> Self
-            where
-                U: Into<usize>,
-            {
-                Self::from_usize($crate::align_down(self.0, align.into()))
-            }
-
-            /// Aligns the address upwards to the given alignment.
-            #[inline]
-            pub fn align_up<U>(self, align: U) -> Self
-            where
-                U: Into<usize>,
-            {
-                Self::from_usize($crate::align_up(self.0, align.into()))
-            }
-
-            /// Returns the offset of the address within the given alignment.
-            #[inline]
-            pub fn align_offset<U>(self, align: U) -> usize
-            where
-                U: Into<usize>,
-            {
-                $crate::align_offset(self.0, align.into())
-            }
-
-            /// Checks whether the address has the demanded alignment.
-            #[inline]
-            pub fn is_aligned<U>(self, align: U) -> bool
-            where
-                U: Into<usize>,
-            {
-                $crate::is_aligned(self.0, align.into())
-            }
-
-            /// Aligns the address downwards to 4096 (bytes).
-            #[inline]
-            pub const fn align_down_4k(self) -> Self {
-                Self::from_usize($crate::align_down(self.0, $crate::PAGE_SIZE_4K))
-            }
-
-            /// Aligns the address upwards to 4096 (bytes).
-            #[inline]
-            pub const fn align_up_4k(self) -> Self {
-                Self::from_usize($crate::align_up(self.0, $crate::PAGE_SIZE_4K))
-            }
-
-            /// Returns the offset of the address within a 4K-sized page.
-            #[inline]
-            pub const fn align_offset_4k(self) -> usize {
-                $crate::align_offset(self.0, $crate::PAGE_SIZE_4K)
-            }
-
-            /// Checks whether the address is 4K-aligned.
-            #[inline]
-            pub const fn is_aligned_4k(self) -> bool {
-                $crate::is_aligned(self.0, $crate::PAGE_SIZE_4K)
             }
         }
 
@@ -247,11 +239,11 @@ macro_rules! def_usize_addr {
 ///     ExampleAddr = "EA:{}";
 /// }
 ///
-/// fn main() {
-///     assert_eq!(format!("{:?}", PhysAddr::from(0x1abc)), "PA:0x1abc");
-///     assert_eq!(format!("{:x}", VirtAddr::from(0x1abc)), "VA:0x1abc");
-///     assert_eq!(format!("{:X}", ExampleAddr::from(0x1abc)), "EA:0x1ABC");
-/// }
+/// # fn main() {
+/// assert_eq!(format!("{:?}", PhysAddr::from(0x1abc)), "PA:0x1abc");
+/// assert_eq!(format!("{:x}", VirtAddr::from(0x1abc)), "VA:0x1abc");
+/// assert_eq!(format!("{:X}", ExampleAddr::from(0x1abc)), "EA:0x1ABC");
+/// # }
 /// ```
 #[macro_export]
 macro_rules! def_usize_addr_formatter {

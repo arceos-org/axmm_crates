@@ -77,7 +77,7 @@ pub const fn is_aligned_4k(addr: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::{va, va_range, VirtAddrRange};
+    use crate::{va, va_range, MemoryAddr, VirtAddrRange};
 
     #[test]
     fn test_addr() {
