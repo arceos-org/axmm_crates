@@ -10,9 +10,13 @@ type MockPageTable = [MockFlags; MAX_ADDR];
 #[derive(Clone)]
 struct MockBackend;
 
-type MockMemorySet = MemorySet<MockFlags, MockPageTable, MockBackend>;
+type MockMemorySet = MemorySet<MockBackend>;
 
-impl MappingBackend<MockFlags, MockPageTable> for MockBackend {
+impl MappingBackend for MockBackend {
+    type Addr = VirtAddr;
+    type Flags = MockFlags;
+    type PageTable = MockPageTable;
+
     fn map(&self, start: VirtAddr, size: usize, flags: MockFlags, pt: &mut MockPageTable) -> bool {
         for entry in pt.iter_mut().skip(start.as_usize()).take(size) {
             if *entry != 0 {
