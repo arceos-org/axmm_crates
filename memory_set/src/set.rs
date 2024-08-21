@@ -150,11 +150,11 @@ impl<B: MappingBackend> MemorySet<B> {
             if before_end > start {
                 if before_end <= end {
                     // the unmapped area is at the end of `before`.
-                    before.shrink_right(start.sub_addr(before_start), page_table)?;
+                    before.shrink_right(start.offset_from(before_start) as usize, page_table)?;
                 } else {
                     // the unmapped area is in the middle `before`, need to split.
                     let right_part = before.split(end).unwrap();
-                    before.shrink_right(start.sub_addr(before_start), page_table)?;
+                    before.shrink_right(start.offset_from(before_start) as usize, page_table)?;
                     assert_eq!(right_part.start().into(), Into::<usize>::into(end));
                     self.areas.insert(end, right_part);
                 }
@@ -167,7 +167,7 @@ impl<B: MappingBackend> MemorySet<B> {
             if after_start < end {
                 // the unmapped area is at the start of `after`.
                 let mut new_area = self.areas.remove(&after_start).unwrap();
-                new_area.shrink_left(after_end.sub_addr(end), page_table)?;
+                new_area.shrink_left(after_end.offset_from(end) as usize, page_table)?;
                 assert_eq!(new_area.start().into(), Into::<usize>::into(end));
                 self.areas.insert(end, new_area);
             }

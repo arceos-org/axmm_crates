@@ -92,7 +92,11 @@ where
     /// ```
     #[inline]
     pub fn size(self) -> usize {
-        self.end.sub_addr(self.start)
+        if self.is_empty() {
+            0
+        } else {
+            self.end.offset_from(self.start) as usize
+        }
     }
 
     /// Checks if the range contains the given address.

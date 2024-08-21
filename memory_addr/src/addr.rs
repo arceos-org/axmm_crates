@@ -79,16 +79,21 @@ pub trait MemoryAddr:
 
     // About address modification:
 
-    /// Adds the given signed offset to the address.
+    /// Adds a given offset to the address to get a new address.
+    /// 
+    /// Unlike `<*const T>::offset`, this method always wraps around on overflow,
+    /// as in `<*const T>::wrapping_offset`.
     #[inline]
     fn offset(self, offset: isize) -> Self {
         Self::from(usize::wrapping_add_signed(self.into(), offset))
     }
 
     /// Gets the distance between two addresses.
+    /// 
+    /// Unlike `<*const T>::offset_from`, this method always wraps around on overflow.
     #[inline]
-    fn sub_addr(self, base: Self) -> usize {
-        usize::wrapping_sub(self.into(), base.into())
+    fn offset_from(self, base: Self) -> isize {
+        usize::wrapping_sub(self.into(), base.into()) as isize
     }
 }
 

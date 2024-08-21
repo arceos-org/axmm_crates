@@ -144,7 +144,7 @@ impl<B: MappingBackend> MemoryArea<B> {
         if self.start() < pos && pos < self.end() {
             let new_area = Self::new(
                 pos,
-                self.end().sub_addr(pos),
+                self.end().offset_from(pos) as usize,
                 self.flags,
                 self.backend.clone(),
             );
