@@ -300,10 +300,22 @@ impl VirtAddr {
         self.0 as *const u8
     }
 
+    /// Converts the virtual address to a raw pointer of a specific type.
+    #[inline]
+    pub const fn as_ptr_of<T>(self) -> *const T {
+        self.0 as *const T
+    }
+
     /// Converts the virtual address to a mutable raw pointer.
     #[inline]
     pub const fn as_mut_ptr(self) -> *mut u8 {
         self.0 as *mut u8
+    }
+
+    /// Converts the virtual address to a mutable raw pointer of a specific type.
+    #[inline]
+    pub const fn as_mut_ptr_of<T>(self) -> *mut T {
+        self.0 as *mut T
     }
 }
 
