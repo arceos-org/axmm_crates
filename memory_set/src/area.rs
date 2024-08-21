@@ -140,7 +140,6 @@ impl<B: MappingBackend> MemoryArea<B> {
     /// Returns `None` if the given position is not in the memory area, or one
     /// of the parts is empty after splitting.
     pub(crate) fn split(&mut self, pos: B::Addr) -> Option<Self> {
-        // todo: is it a bug when `pos == end - 1`?
         if self.start() < pos && pos < self.end() {
             let new_area = Self::new(
                 pos,
