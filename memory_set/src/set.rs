@@ -72,12 +72,12 @@ impl<B: MappingBackend> MemorySet<B> {
         // brute force: try each area's end address as the start.
         let mut last_end = hint.max(limit.start);
         for (&addr, area) in self.areas.iter() {
-            if last_end.offset(size as isize) <= addr {
+            if last_end.add(size) <= addr {
                 return Some(last_end);
             }
             last_end = area.end();
         }
-        if last_end.offset(size as isize) <= limit.end {
+        if last_end.add(size) <= limit.end {
             Some(last_end)
         } else {
             None
@@ -201,7 +201,7 @@ impl<B: MappingBackend> MemorySet<B> {
         update_flags: impl Fn(B::Flags) -> Option<B::Flags>,
         page_table: &mut B::PageTable,
     ) -> MappingResult {
-        let end = start.offset(size as isize);
+        let end = start.add(size);
         let mut to_insert = Vec::new();
         for (area_start, area) in self.areas.iter_mut() {
             let area_start = *area_start;

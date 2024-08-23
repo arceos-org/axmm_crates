@@ -60,7 +60,7 @@ where
     pub fn from_start_size(start: A, size: usize) -> Self {
         Self {
             start,
-            end: start.offset(size as isize),
+            end: start.add(size),
         }
     }
 

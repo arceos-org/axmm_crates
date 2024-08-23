@@ -84,6 +84,7 @@ pub trait MemoryAddr:
     /// Unlike `<*const T>::offset`, this method always wraps around on overflow,
     /// as in `<*const T>::wrapping_offset`.
     #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
     fn offset(self, offset: isize) -> Self {
         Self::from(usize::wrapping_add_signed(self.into(), offset))
     }
@@ -92,8 +93,33 @@ pub trait MemoryAddr:
     /// 
     /// Unlike `<*const T>::offset_from`, this method always wraps around on overflow.
     #[inline]
+    #[must_use = "this function has no side effects, so it can be removed if the return value is unused"]
     fn offset_from(self, base: Self) -> isize {
         usize::wrapping_sub(self.into(), base.into()) as isize
+    }
+
+    /// Adds a given **unsigned** offset to the address to get a new address.
+    /// 
+    /// This method is similar to `offset`, but it takes an unsigned offset. It's a
+    /// convenience of `offset(offset as isize)`.
+    /// 
+    /// Unlike `<*const T>::add`, this method always wraps around on overflow,
+    /// as in `<*const T>::wrapping_add`.
+    #[inline]
+    fn add(self, rhs: usize) -> Self {
+        Self::from(usize::wrapping_add(self.into(), rhs))
+    }
+
+    /// Subtracts a given **unsigned** offset from the address to get a new address.
+    /// 
+    /// This method is similar to `add`, but it subtracts the offset. It's a convenience
+    /// of `offset(-(offset as isize))`.
+    /// 
+    /// Unlike `<*const T>::sub`, this method always wraps around on overflow,
+    /// as in `<*const T>::wrapping_sub`.
+    #[inline]
+    fn sub(self, rhs: usize) -> Self {
+        Self::from(usize::wrapping_sub(self.into(), rhs))
     }
 }
 

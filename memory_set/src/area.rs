@@ -107,7 +107,7 @@ impl<B: MappingBackend> MemoryArea<B> {
         if !self.backend.unmap(self.start(), unmap_size, page_table) {
             return Err(MappingError::BadState);
         }
-        self.va_range.start = self.va_range.start.offset(unmap_size as isize);
+        self.va_range.start = self.va_range.start.add(unmap_size);
         Ok(())
     }
 
@@ -121,14 +121,13 @@ impl<B: MappingBackend> MemoryArea<B> {
         page_table: &mut B::PageTable,
     ) -> MappingResult {
         let unmap_size = self.size() - new_size;
-        if !self.backend.unmap(
-            self.start().offset(new_size as isize),
-            unmap_size,
-            page_table,
-        ) {
+        if !self
+            .backend
+            .unmap(self.start().add(new_size), unmap_size, page_table)
+        {
             return Err(MappingError::BadState);
         }
-        self.va_range.end = self.va_range.end.offset(-(unmap_size as isize));
+        self.va_range.end = self.va_range.end.sub(unmap_size);
         Ok(())
     }
 
