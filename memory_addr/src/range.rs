@@ -47,6 +47,8 @@ where
 
     /// Creates a new address range from the start address and the size.
     ///
+    /// An empty range is created if the end address overflows.
+    /// 
     /// # Example
     ///
     /// ```
@@ -114,11 +116,14 @@ where
     /// ```
     #[inline]
     pub fn contains(self, addr: A) -> bool {
+        // this will always be false if the range is empty
         self.start <= addr && addr < self.end
     }
 
     /// Checks if the range contains the given address range.
     ///
+    /// Returns false if either range is empty.
+    /// 
     /// # Example
     ///
     /// ```
@@ -134,11 +139,13 @@ where
     /// ```
     #[inline]
     pub fn contains_range(self, other: Self) -> bool {
-        self.start <= other.start && other.end <= self.end
+        !self.is_empty() && !other.is_empty() && self.start <= other.start && other.end <= self.end
     }
 
     /// Checks if the range is contained in the given address range.
     ///
+    /// Returns false if either range is empty.
+    /// 
     /// # Example
     ///
     /// ```
@@ -157,6 +164,8 @@ where
 
     /// Checks if the range overlaps with the given address range.
     ///
+    /// Returns false if either range is empty.
+    /// 
     /// # Example
     ///
     /// ```
@@ -172,7 +181,7 @@ where
     /// ```
     #[inline]
     pub fn overlaps(self, other: Self) -> bool {
-        self.start < other.end && other.start < self.end
+        !self.is_empty() && !other.is_empty() && self.start < other.end && other.start < self.end
     }
 }
 
