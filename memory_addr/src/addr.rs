@@ -132,10 +132,21 @@ pub trait MemoryAddr:
         Self::from(usize::wrapping_add(self.into(), rhs))
     }
 
+    /// Adds a given **unsigned** offset to the address to get a new address.
+    /// 
+    /// Unlike `add`, this method returns a tuple of the new address and a boolean indicating
+    /// whether the addition has overflowed.
+    #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
+    fn overflowing_add(self, rhs: usize) -> (Self, bool) {
+        let (result, overflow) = self.into().overflowing_add(rhs);
+        (Self::from(result), overflow)
+    }
+
     /// Subtracts a given **unsigned** offset from the address to get a new address.
     /// 
     /// This method is similar to `offset(-rhs)`, but it takes an unsigned offset. This method
-    /// will also panic on underflow.
+    /// will also panic on overflowed.
     #[inline]
     #[must_use = "this returns a new address, without modifying the original"]
     fn sub(self, rhs: usize) -> Self {
@@ -144,11 +155,22 @@ pub trait MemoryAddr:
 
     /// Subtracts a given **unsigned** offset from the address to get a new address.
     /// 
-    /// Unlike `sub`, this method always wraps around on overflow.
+    /// Unlike `sub`, this method always wraps around on overflowed.
     #[inline]
     #[must_use = "this returns a new address, without modifying the original"]
     fn wrapping_sub(self, rhs: usize) -> Self {
         Self::from(usize::wrapping_sub(self.into(), rhs))
+    }
+
+    /// Subtracts a given **unsigned** offset from the address to get a new address.
+    /// 
+    /// Unlike `sub`, this method returns a tuple of the new address and a boolean indicating
+    /// whether the subtraction has overflowed.
+    #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
+    fn overflowing_sub(self, rhs: usize) -> (Self, bool) {
+        let (result, overflow) = self.into().overflowing_sub(rhs);
+        (Self::from(result), overflow)
     }
 }
 
