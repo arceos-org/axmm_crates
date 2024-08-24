@@ -143,6 +143,15 @@ pub trait MemoryAddr:
         (Self::from(result), overflow)
     }
 
+    /// Adds a given **unsigned** offset to the address to get a new address.
+    /// 
+    /// Unlike `add`, this method returns `None` on overflow.
+    #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
+    fn checked_add(self, rhs: usize) -> Option<Self> {
+        usize::checked_add(self.into(), rhs).map(Self::from)
+    }
+
     /// Subtracts a given **unsigned** offset from the address to get a new address.
     /// 
     /// This method is similar to `offset(-rhs)`, but it takes an unsigned offset. This method
@@ -171,6 +180,15 @@ pub trait MemoryAddr:
     fn overflowing_sub(self, rhs: usize) -> (Self, bool) {
         let (result, overflow) = self.into().overflowing_sub(rhs);
         (Self::from(result), overflow)
+    }
+
+    /// Subtracts a given **unsigned** offset from the address to get a new address.
+    /// 
+    /// Unlike `sub`, this method returns `None` on overflow.
+    #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
+    fn checked_sub(self, rhs: usize) -> Option<Self> {
+        usize::checked_sub(self.into(), rhs).map(Self::from)
     }
 }
 
