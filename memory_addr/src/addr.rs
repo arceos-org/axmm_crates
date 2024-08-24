@@ -445,11 +445,17 @@ mod test {
         let addr = ExampleAddr::from_usize(base + offset);
 
         assert_eq!(addr.align_down(alignment), ExampleAddr::from_usize(base));
-        assert_eq!(addr.align_up(alignment), ExampleAddr::from_usize(base + alignment));
+        assert_eq!(
+            addr.align_up(alignment),
+            ExampleAddr::from_usize(base + alignment)
+        );
         assert_eq!(addr.align_offset(alignment), offset);
         assert!(!addr.is_aligned(alignment));
         assert!(ExampleAddr::from_usize(base).is_aligned(alignment));
-        assert_eq!(ExampleAddr::from_usize(base).align_up(alignment), ExampleAddr::from_usize(base));
+        assert_eq!(
+            ExampleAddr::from_usize(base).align_up(alignment),
+            ExampleAddr::from_usize(base)
+        );
     }
 
     #[test]
