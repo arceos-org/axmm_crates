@@ -81,44 +81,73 @@ pub trait MemoryAddr:
 
     /// Adds a given offset to the address to get a new address.
     /// 
-    /// Unlike `<*const T>::offset`, this method always wraps around on overflow,
-    /// as in `<*const T>::wrapping_offset`.
+    /// This method will panic on overflow.
     #[inline]
     #[must_use = "this returns a new address, without modifying the original"]
     fn offset(self, offset: isize) -> Self {
+        // todo: use `strict_add_signed` when it's stable.
+        Self::from(usize::checked_add_signed(self.into(), offset).unwrap())
+    }
+
+    /// Adds a given offset to the address to get a new address.
+    /// 
+    /// Unlike `offset`, this method always wraps around on overflow.
+    #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
+    fn wrapping_offset(self, offset: isize) -> Self {
         Self::from(usize::wrapping_add_signed(self.into(), offset))
     }
 
     /// Gets the distance between two addresses.
     /// 
-    /// Unlike `<*const T>::offset_from`, this method always wraps around on overflow.
+    /// This method will panic if the result is not representable by `isize`.
     #[inline]
     #[must_use = "this function has no side effects, so it can be removed if the return value is unused"]
     fn offset_from(self, base: Self) -> isize {
-        usize::wrapping_sub(self.into(), base.into()) as isize
+        let result = usize::wrapping_sub(self.into(), base.into()) as isize;
+        if (result > 0) ^ (base < self) {
+            // The result has overflowed.
+            panic!("overflow in `MemoryAddr::offset_from`");
+        } else {
+            result
+        }
     }
 
     /// Adds a given **unsigned** offset to the address to get a new address.
     /// 
-    /// This method is similar to `offset`, but it takes an unsigned offset. It's a
-    /// convenience of `offset(offset as isize)`.
-    /// 
-    /// Unlike `<*const T>::add`, this method always wraps around on overflow,
-    /// as in `<*const T>::wrapping_add`.
+    /// This method is similar to `offset`, but it takes an unsigned offset. This method
+    /// will also panic on overflow.
     #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
     fn add(self, rhs: usize) -> Self {
+        Self::from(usize::checked_add(self.into(), rhs).unwrap())
+    }
+
+    /// Adds a given **unsigned** offset to the address to get a new address.
+    /// 
+    /// Unlike `add`, this method always wraps around on overflow.
+    #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
+    fn wrapping_add(self, rhs: usize) -> Self {
         Self::from(usize::wrapping_add(self.into(), rhs))
     }
 
     /// Subtracts a given **unsigned** offset from the address to get a new address.
     /// 
-    /// This method is similar to `add`, but it subtracts the offset. It's a convenience
-    /// of `offset(-(offset as isize))`.
-    /// 
-    /// Unlike `<*const T>::sub`, this method always wraps around on overflow,
-    /// as in `<*const T>::wrapping_sub`.
+    /// This method is similar to `offset(-rhs)`, but it takes an unsigned offset. This method
+    /// will also panic on underflow.
     #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
     fn sub(self, rhs: usize) -> Self {
+        Self::from(usize::checked_sub(self.into(), rhs).unwrap())
+    }
+
+    /// Subtracts a given **unsigned** offset from the address to get a new address.
+    /// 
+    /// Unlike `sub`, this method always wraps around on overflow.
+    #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
+    fn wrapping_sub(self, rhs: usize) -> Self {
         Self::from(usize::wrapping_sub(self.into(), rhs))
     }
 }
@@ -359,4 +388,139 @@ macro_rules! va {
     ($addr:expr) => {
         $crate::VirtAddr::from_usize($addr)
     };
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    def_usize_addr! {
+        /// An example address type.
+        pub type ExampleAddr;
+        /// Another example address type.
+        pub type AnotherAddr;
+    }
+
+    def_usize_addr_formatter! {
+        ExampleAddr = "EA:{}";
+        AnotherAddr = "AA:{}";
+    }
+
+    #[test]
+    pub fn test_addr_convert_and_comparison() {
+        let example1 = ExampleAddr::from_usize(0x1234);
+        let example2 = ExampleAddr::from(0x5678);
+        let another1 = AnotherAddr::from_usize(0x9abc);
+        let another2 = AnotherAddr::from(0xdef0);
+
+        assert_eq!(example1.as_usize(), 0x1234);
+        assert_eq!(Into::<usize>::into(example2), 0x5678);
+        assert_eq!(Into::<usize>::into(another1), 0x9abc);
+        assert_eq!(another2.as_usize(), 0xdef0);
+
+        assert_eq!(example1, ExampleAddr::from(0x1234));
+        assert_eq!(example2, ExampleAddr::from_usize(0x5678));
+        assert_eq!(another1, AnotherAddr::from_usize(0x9abc));
+        assert_eq!(another2, AnotherAddr::from(0xdef0));
+
+        assert!(example1 < example2);
+        assert!(example1 <= example2);
+        assert!(example2 > example1);
+        assert!(example2 >= example1);
+        assert!(example1 != example2);
+    }
+
+    #[test]
+    pub fn test_addr_fmt() {
+        assert_eq!(format!("{:?}", ExampleAddr::from(0x1abc)), "EA:0x1abc");
+        assert_eq!(format!("{:x}", AnotherAddr::from(0x1abc)), "AA:0x1abc");
+        assert_eq!(format!("{:X}", ExampleAddr::from(0x1abc)), "EA:0x1ABC");
+    }
+
+    #[test]
+    pub fn test_alignment() {
+        let alignment = 0x1000usize;
+        let base = alignment * 2;
+        let offset = 0x123usize;
+        let addr = ExampleAddr::from_usize(base + offset);
+
+        assert_eq!(addr.align_down(alignment), ExampleAddr::from_usize(base));
+        assert_eq!(addr.align_up(alignment), ExampleAddr::from_usize(base + alignment));
+        assert_eq!(addr.align_offset(alignment), offset);
+        assert!(!addr.is_aligned(alignment));
+        assert!(ExampleAddr::from_usize(base).is_aligned(alignment));
+        assert_eq!(ExampleAddr::from_usize(base).align_up(alignment), ExampleAddr::from_usize(base));
+    }
+
+    #[test]
+    pub fn test_addr_arithmetic() {
+        let base = 0x1234usize;
+        let offset = 0x100usize;
+        let with_offset = base + offset;
+
+        let addr = ExampleAddr::from_usize(base);
+        let offset_addr = ExampleAddr::from_usize(with_offset);
+
+        assert_eq!(addr.offset(offset as isize), offset_addr);
+        assert_eq!(addr.wrapping_offset(offset as isize), offset_addr);
+        assert_eq!(offset_addr.offset_from(addr), offset as isize);
+        assert_eq!(addr.add(offset), offset_addr);
+        assert_eq!(addr.wrapping_add(offset), offset_addr);
+        assert_eq!(offset_addr.sub(offset), addr);
+        assert_eq!(offset_addr.wrapping_sub(offset), addr);
+
+        assert_eq!(addr + offset, offset_addr);
+        assert_eq!(offset_addr - offset, addr);
+        assert_eq!(offset_addr - addr, offset);
+    }
+
+    #[test]
+    pub fn test_addr_wrapping_arithmetic() {
+        let base = usize::MAX - 0x100usize;
+        let offset = 0x200usize;
+        let with_offset = base.wrapping_add(offset);
+
+        let addr = ExampleAddr::from_usize(base);
+        let offset_addr = ExampleAddr::from_usize(with_offset);
+
+        assert_eq!(addr.wrapping_offset(offset as isize), offset_addr);
+        assert_eq!(offset_addr.wrapping_offset(-(offset as isize)), addr);
+        assert_eq!(addr.wrapping_add(offset), offset_addr);
+        assert_eq!(offset_addr.wrapping_sub(offset), addr);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_addr_offset_overflow() {
+        let addr = ExampleAddr::from_usize(usize::MAX);
+        let _ = addr.offset(1);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_addr_offset_from_overflow() {
+        let addr = ExampleAddr::from_usize(usize::MAX);
+        let _ = addr.offset_from(ExampleAddr::from_usize(0));
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_addr_offset_from_underflow() {
+        let addr = ExampleAddr::from_usize(0);
+        let _ = addr.offset_from(ExampleAddr::from_usize(usize::MAX));
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_addr_add_overflow() {
+        let addr = ExampleAddr::from_usize(usize::MAX);
+        let _ = addr.add(1);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_addr_sub_underflow() {
+        let addr = ExampleAddr::from_usize(0);
+        let _ = addr.sub(1);
+    }
 }
