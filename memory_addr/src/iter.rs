@@ -16,6 +16,8 @@ use crate::MemoryAddr;
 /// assert_eq!(iter.next(), Some(0x1000));
 /// assert_eq!(iter.next(), Some(0x2000));
 /// assert_eq!(iter.next(), None);
+///
+/// assert!(PageIter::<0x1000, usize>::new(0x1000, 0x3001).is_none());
 /// ```
 pub struct PageIter<const PAGE_SIZE: usize, A>
 where

@@ -485,6 +485,30 @@ mod test {
     }
 
     #[test]
+    fn test_addr() {
+        let addr = va!(0x2000);
+        assert!(addr.is_aligned_4k());
+        assert!(!addr.is_aligned(0x10000usize));
+        assert_eq!(addr.align_offset_4k(), 0);
+        assert_eq!(addr.align_down_4k(), va!(0x2000));
+        assert_eq!(addr.align_up_4k(), va!(0x2000));
+
+        let addr = va!(0x2fff);
+        assert!(!addr.is_aligned_4k());
+        assert_eq!(addr.align_offset_4k(), 0xfff);
+        assert_eq!(addr.align_down_4k(), va!(0x2000));
+        assert_eq!(addr.align_up_4k(), va!(0x3000));
+
+        let align = 0x100000;
+        let addr = va!(align * 5) + 0x2000;
+        assert!(addr.is_aligned_4k());
+        assert!(!addr.is_aligned(align));
+        assert_eq!(addr.align_offset(align), 0x2000);
+        assert_eq!(addr.align_down(align), va!(align * 5));
+        assert_eq!(addr.align_up(align), va!(align * 6));
+    }
+
+    #[test]
     pub fn test_addr_convert_and_comparison() {
         let example1 = ExampleAddr::from_usize(0x1234);
         let example2 = ExampleAddr::from(0x5678);
@@ -571,6 +595,50 @@ mod test {
         assert_eq!(offset_addr.wrapping_offset(-(offset as isize)), addr);
         assert_eq!(addr.wrapping_add(offset), offset_addr);
         assert_eq!(offset_addr.wrapping_sub(offset), addr);
+    }
+
+    #[test]
+    pub fn test_addr_checked_arithmetic() {
+        let low_addr = ExampleAddr::from_usize(0x100usize);
+        let high_addr = ExampleAddr::from_usize(usize::MAX - 0x100usize);
+        let small_offset = 0x50usize;
+        let large_offset = 0x200usize;
+
+        assert_eq!(
+            low_addr.checked_sub(small_offset),
+            Some(low_addr.wrapping_sub(small_offset))
+        );
+        assert_eq!(low_addr.checked_sub(large_offset), None);
+        assert_eq!(
+            high_addr.checked_add(small_offset),
+            Some(high_addr.wrapping_add(small_offset))
+        );
+        assert_eq!(high_addr.checked_add(large_offset), None);
+    }
+
+    #[test]
+    pub fn test_addr_overflowing_arithmetic() {
+        let low_addr = ExampleAddr::from_usize(0x100usize);
+        let high_addr = ExampleAddr::from_usize(usize::MAX - 0x100usize);
+        let small_offset = 0x50usize;
+        let large_offset = 0x200usize;
+
+        assert_eq!(
+            low_addr.overflowing_sub(small_offset),
+            (low_addr.wrapping_sub(small_offset), false)
+        );
+        assert_eq!(
+            low_addr.overflowing_sub(large_offset),
+            (low_addr.wrapping_sub(large_offset), true)
+        );
+        assert_eq!(
+            high_addr.overflowing_add(small_offset),
+            (high_addr.wrapping_add(small_offset), false)
+        );
+        assert_eq!(
+            high_addr.overflowing_add(large_offset),
+            (high_addr.wrapping_add(large_offset), true)
+        );
     }
 
     #[test]

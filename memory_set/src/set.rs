@@ -192,8 +192,8 @@ impl<B: MappingBackend> MemorySet<B> {
     /// It returns [`None`] if there is no bit to change.
     ///
     /// Memory areas will be skipped according to `update_flags`. Memory areas
-    /// that are fully contained in the range or contains the range or intersects
-    /// with the boundary will be handled similarly to `munmap`.
+    /// that are fully contained in the range or contains the range or
+    /// intersects with the boundary will be handled similarly to `munmap`.
     pub fn protect(
         &mut self,
         start: B::Addr,
