@@ -2,8 +2,13 @@ use core::cmp::Ord;
 
 /// A trait for memory address types.
 ///
-/// Memory address types here include both physical and virtual addresses, as well as any other
-/// similar types like guest physical addresses in a hypervisor.
+/// Memory address types here include both physical and virtual addresses, as
+/// well as any other similar types like guest physical addresses in a
+/// hypervisor.
+///
+/// This trait is automatically implemented for any type that is `Copy`,
+/// `From<usize>`, `Into<usize>`, and `Ord`, providing a set of utility methods
+/// for address alignment and arithmetic.
 pub trait MemoryAddr:
     // The address type should be trivially copyable. This implies `Clone`.
     Copy
@@ -15,10 +20,13 @@ pub trait MemoryAddr:
 {
     // No required methods for now. Following are some utility methods.
 
-    // About alignment:
+    //
+    // This section contains utility methods for address alignment.
+    //
 
     /// Aligns the address downwards to the given alignment.
     #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
     fn align_down<U>(self, align: U) -> Self
     where
         U: Into<usize>,
@@ -28,6 +36,7 @@ pub trait MemoryAddr:
 
     /// Aligns the address upwards to the given alignment.
     #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
     fn align_up<U>(self, align: U) -> Self
     where
         U: Into<usize>,
@@ -37,6 +46,7 @@ pub trait MemoryAddr:
 
     /// Returns the offset of the address within the given alignment.
     #[inline]
+    #[must_use = "this function has no side effects, so it can be removed if the return value is not used"]
     fn align_offset<U>(self, align: U) -> usize
     where
         U: Into<usize>,
@@ -46,6 +56,7 @@ pub trait MemoryAddr:
 
     /// Checks whether the address has the demanded alignment.
     #[inline]
+    #[must_use = "this function has no side effects, so it can be removed if the return value is not used"]
     fn is_aligned<U>(self, align: U) -> bool
     where
         U: Into<usize>,
@@ -55,29 +66,35 @@ pub trait MemoryAddr:
 
     /// Aligns the address downwards to 4096 (bytes).
     #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
     fn align_down_4k(self) -> Self {
         Self::from(crate::align_down(self.into(), crate::PAGE_SIZE_4K))
     }
 
     /// Aligns the address upwards to 4096 (bytes).
     #[inline]
+    #[must_use = "this returns a new address, without modifying the original"]
     fn align_up_4k(self) -> Self {
         Self::from(crate::align_up(self.into(), crate::PAGE_SIZE_4K))
     }
 
     /// Returns the offset of the address within a 4K-sized page.
     #[inline]
+    #[must_use = "this function has no side effects, so it can be removed if the return value is not used"]
     fn align_offset_4k(self) -> usize {
         crate::align_offset(self.into(), crate::PAGE_SIZE_4K)
     }
 
     /// Checks whether the address is 4K-aligned.
     #[inline]
+    #[must_use = "this function has no side effects, so it can be removed if the return value is not used"]
     fn is_aligned_4k(self) -> bool {
         crate::is_aligned(self.into(), crate::PAGE_SIZE_4K)
     }
 
-    // About address modification:
+    //
+    // This section contains utility methods for address arithmetic.
+    //
 
     /// Adds a given offset to the address to get a new address.
     /// 
@@ -102,7 +119,7 @@ pub trait MemoryAddr:
     /// 
     /// This method will panic if the result is not representable by `isize`.
     #[inline]
-    #[must_use = "this function has no side effects, so it can be removed if the return value is unused"]
+    #[must_use = "this function has no side effects, so it can be removed if the return value is not used"]
     fn offset_from(self, base: Self) -> isize {
         let result = usize::wrapping_sub(self.into(), base.into()) as isize;
         if (result > 0) ^ (base < self) {
@@ -192,21 +209,24 @@ pub trait MemoryAddr:
     }
 }
 
-// Implement the `MemoryAddr` trait for any type that is `Copy`, `From<usize>`, `Into<usize>`, and `Ord`.
+/// Implement the `MemoryAddr` trait for any type that is `Copy`, `From<usize>`,
+/// `Into<usize>`, and `Ord`.
 impl<T> MemoryAddr for T where T: Copy + From<usize> + Into<usize> + Ord {}
 
 /// Creates a new address type by wrapping an `usize`.
 ///
 /// For each `$vis type $name;`, this macro generates the following items:
-/// - Definition of the new address type `$name`, which contains a single private unnamed field of
-///   type `usize`.
-/// - Default implementations (i.e. derived implementations) for the following traits:
+/// - Definition of the new address type `$name`, which contains a single
+///   private unnamed field of type `usize`.
+/// - Default implementations (i.e. derived implementations) for the following
+///   traits:
 ///   - `Copy`, `Clone`,
 ///   - `Default`,
 ///   - `Ord`, `PartialOrd`, `Eq`, and `PartialEq`.
 /// - Implementations for the following traits:
 ///   - `From<usize>`, `Into<usize>` (by implementing `From<$name> for usize`),
-///   - `Add<usize>`, `AddAssign<usize>`, `Sub<usize>`, `SubAssign<usize>`, as well as
+///   - `Add<usize>`, `AddAssign<usize>`, `Sub<usize>`, `SubAssign<usize>`, and
+///   - `Sub<$name>`.
 /// - Two `const` methods to convert between the address type and `usize`:
 ///   - `from_usize`, which converts an `usize` to the address type, and
 ///   - `as_usize`, which converts the address type to an `usize`.
@@ -314,16 +334,19 @@ macro_rules! def_usize_addr {
     () => {};
 }
 
-/// Creates implementations for the [`core::fmt::Debug`], [`core::fmt::LowerHex`], and
-/// [`core::fmt::UpperHex`] traits for the given address types defined by the [`def_usize_addr`].
+/// Creates implementations for the [`Debug`](core::fmt::Debug),
+/// [`LowerHex`](core::fmt::LowerHex), and [`UpperHex`](core::fmt::UpperHex)
+/// traits for the given address types defined by the [`def_usize_addr`].
 ///
 /// For each `$name = $format;`, this macro generates the following items:
-/// - An implementation of [`core::fmt::Debug`] for the address type `$name`, which formats the
-///   address with `format_args!($format, format_args!("{:#x}", self.0))`,
-/// - An implementation of [`core::fmt::LowerHex`] for the address type `$name`, which formats the
-///   address in the same way as [`core::fmt::Debug`],
-/// - An implementation of [`core::fmt::UpperHex`] for the address type `$name`, which formats the
-///   address with `format_args!($format, format_args!("{:#X}", self.0))`.
+/// - An implementation of [`core::fmt::Debug`] for the address type `$name`,
+///   which formats the address with `format_args!($format,
+///   format_args!("{:#x}", self.0))`,
+/// - An implementation of [`core::fmt::LowerHex`] for the address type `$name`,
+///   which formats the address in the same way as [`core::fmt::Debug`],
+/// - An implementation of [`core::fmt::UpperHex`] for the address type `$name`,
+///   which formats the address with `format_args!($format,
+///   format_args!("{:#X}", self.0))`.
 ///
 /// # Example
 ///
@@ -389,6 +412,18 @@ def_usize_addr_formatter! {
 }
 
 impl VirtAddr {
+    /// Creates a new virtual address from a raw pointer.
+    #[inline]
+    pub fn from_ptr_of<T>(ptr: *const T) -> Self {
+        Self(ptr as usize)
+    }
+
+    /// Creates a new virtual address from a mutable raw pointer.
+    #[inline]
+    pub fn from_mut_ptr_of<T>(ptr: *mut T) -> Self {
+        Self(ptr as usize)
+    }
+
     /// Converts the virtual address to a raw pointer.
     #[inline]
     pub const fn as_ptr(self) -> *const u8 {
@@ -407,7 +442,8 @@ impl VirtAddr {
         self.0 as *mut u8
     }
 
-    /// Converts the virtual address to a mutable raw pointer of a specific type.
+    /// Converts the virtual address to a mutable raw pointer of a specific
+    /// type.
     #[inline]
     pub const fn as_mut_ptr_of<T>(self) -> *mut T {
         self.0 as *mut T
@@ -432,6 +468,8 @@ macro_rules! va {
 
 #[cfg(test)]
 mod test {
+    use core::mem::size_of;
+
     use super::*;
 
     def_usize_addr! {
@@ -568,5 +606,37 @@ mod test {
     pub fn test_addr_sub_underflow() {
         let addr = ExampleAddr::from_usize(0);
         let _ = addr.sub(1);
+    }
+
+    #[test]
+    pub fn test_virt_addr_ptr() {
+        let a: [usize; 4] = [0x1234, 0x5678, 0x9abc, 0xdef0];
+
+        let va0 = VirtAddr::from_ptr_of(&a as *const usize);
+        let va1 = va0.add(size_of::<usize>());
+        let va2 = va1.add(size_of::<usize>());
+        let va3 = va2.add(size_of::<usize>());
+
+        let p0 = va0.as_ptr() as *const usize;
+        let p1 = va1.as_ptr_of::<usize>();
+        let p2 = va2.as_mut_ptr() as *mut usize;
+        let p3 = va3.as_mut_ptr_of::<usize>();
+
+        // testing conversion back to virt addr
+        assert_eq!(va0, VirtAddr::from_ptr_of(p0));
+        assert_eq!(va1, VirtAddr::from_ptr_of(p1));
+        assert_eq!(va2, VirtAddr::from_mut_ptr_of(p2));
+        assert_eq!(va3, VirtAddr::from_mut_ptr_of(p3));
+        
+        // testing pointer read/write
+        assert!(unsafe { *p0 } == a[0]);
+        assert!(unsafe { *p1 } == a[1]);
+        assert!(unsafe { *p2 } == a[2]);
+        assert!(unsafe { *p3 } == a[3]);
+
+        unsafe { *p2 = 0xdeadbeef; }
+        unsafe { *p3 = 0xcafebabe; }
+        assert_eq!(a[2], 0xdeadbeef);
+        assert_eq!(a[3], 0xcafebabe);
     }
 }
