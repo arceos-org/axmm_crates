@@ -627,15 +627,19 @@ mod test {
         assert_eq!(va1, VirtAddr::from_ptr_of(p1));
         assert_eq!(va2, VirtAddr::from_mut_ptr_of(p2));
         assert_eq!(va3, VirtAddr::from_mut_ptr_of(p3));
-        
+
         // testing pointer read/write
         assert!(unsafe { *p0 } == a[0]);
         assert!(unsafe { *p1 } == a[1]);
         assert!(unsafe { *p2 } == a[2]);
         assert!(unsafe { *p3 } == a[3]);
 
-        unsafe { *p2 = 0xdeadbeef; }
-        unsafe { *p3 = 0xcafebabe; }
+        unsafe {
+            *p2 = 0xdeadbeef;
+        }
+        unsafe {
+            *p3 = 0xcafebabe;
+        }
         assert_eq!(a[2], 0xdeadbeef);
         assert_eq!(a[3], 0xcafebabe);
     }
