@@ -5,9 +5,10 @@ use crate::{MemoryAddr, PhysAddr, VirtAddr};
 /// A range of a given memory address type `A`.
 ///
 /// The range is inclusive on the start and exclusive on the end. A range is
-/// considered empty if `start >= end`. An empty range has a size of `0`,
-/// contains no addresses or ranges, overlaps with no ranges, and is contained
-/// in no ranges.
+/// considered **empty** iff `start == end`, and **invalid** iff `start > end`.
+/// An invalid range should not be created and cannot be obtained without unsafe
+/// operations, calling methods on an invalid range will cause unexpected
+/// consequences.
 ///
 /// # Example
 ///
@@ -33,6 +34,10 @@ where
 {
     /// Creates a new address range from the start and end addresses.
     ///
+    /// # Panics
+    ///
+    /// Panics if `start > end`.
+    ///
     /// # Example
     ///
     /// ```
@@ -42,16 +47,75 @@ where
     /// assert_eq!(range.start, 0x1000);
     /// assert_eq!(range.end, 0x2000);
     /// ```
+    ///
+    /// And this will panic:
+    ///
+    /// ```should_panic
+    /// # use memory_addr::AddrRange;
+    /// let _ = AddrRange::new(0x2000usize, 0x1000);
+    /// ```
     #[inline]
-    pub const fn new(start: A, end: A) -> Self {
+    pub fn new(start: A, end: A) -> Self {
+        assert!(
+            start <= end,
+            "invalid `AddrRange`: {}..{}",
+            start.into(),
+            end.into()
+        );
+        Self { start, end }
+    }
+
+    /// Creates a new address range from the given range.
+    ///
+    /// Returns `None` if `start > end`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use memory_addr::AddrRange;
+    ///
+    /// let range = AddrRange::try_new(0x1000usize, 0x2000).unwrap();
+    /// assert_eq!(range.start, 0x1000);
+    /// assert_eq!(range.end, 0x2000);
+    /// assert!(AddrRange::try_new(0x2000usize, 0x1000).is_none());
+    /// ```
+    #[inline]
+    pub fn try_new(start: A, end: A) -> Option<Self> {
+        if start <= end {
+            Some(Self { start, end })
+        } else {
+            None
+        }
+    }
+
+    /// Creates a new address range from the given range without checking the
+    /// validity.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `start <= end`, otherwise the range will be
+    /// invalid and unexpected consequences will occur.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use memory_addr::AddrRange;
+    ///
+    /// let range = unsafe { AddrRange::new_unchecked(0x1000usize, 0x2000) };
+    /// assert_eq!(range.start, 0x1000);
+    /// assert_eq!(range.end, 0x2000);
+    /// ```
+    #[inline]
+    pub const unsafe fn new_unchecked(start: A, end: A) -> Self {
         Self { start, end }
     }
 
     /// Creates a new address range from the start address and the size.
     ///
-    /// This is equivalent to `AddrRange::new(start, start.wrapping_add(size))`,
-    /// which means, if `start.wrapping_add(size)` overflows, the range will be
-    /// empty.
+    /// # Panics
+    ///
+    /// Panics if `size` is too large and causes overflow during evaluating the
+    /// end address.
     ///
     /// # Example
     ///
@@ -61,20 +125,77 @@ where
     /// let range = AddrRange::from_start_size(0x1000usize, 0x1000);
     /// assert_eq!(range.start, 0x1000);
     /// assert_eq!(range.end, 0x2000);
+    /// ```
     ///
-    /// let empty_range = AddrRange::from_start_size(usize::MAX, 0x1);
-    /// assert_eq!(empty_range.start, usize::MAX);
-    /// assert_eq!(empty_range.end, 0);
+    /// And this will panic:
+    ///
+    /// ```should_panic
+    /// # use memory_addr::AddrRange;
+    /// let _ = AddrRange::from_start_size(0x1000usize, usize::MAX);
     /// ```
     #[inline]
     pub fn from_start_size(start: A, size: usize) -> Self {
+        if let Some(end) = start.checked_add(size) {
+            Self { start, end }
+        } else {
+            panic!(
+                "size too large for `AddrRange`: {} + {}",
+                start.into(),
+                size
+            );
+        }
+    }
+
+    /// Creates a new address range from the start address and the size.
+    ///
+    /// Returns `None` if `size` is too large and causes overflow during
+    /// evaluating the end address.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use memory_addr::AddrRange;
+    ///
+    /// let range = AddrRange::try_from_start_size(0x1000usize, 0x1000).unwrap();
+    /// assert_eq!(range.start, 0x1000);
+    /// assert_eq!(range.end, 0x2000);
+    /// assert!(AddrRange::try_from_start_size(0x1000usize, usize::MAX).is_none());
+    /// ```
+    #[inline]
+    pub fn try_from_start_size(start: A, size: usize) -> Option<Self> {
+        start.checked_add(size).map(|end| Self { start, end })
+    }
+
+    /// Creates a new address range from the start address and the size without
+    /// checking the validity.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `size` is not too large and won't cause
+    /// overflow during evaluating the end address. Failing to do so will
+    /// create an invalid range and cause unexpected consequences.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use memory_addr::AddrRange;
+    ///
+    /// let range = unsafe { AddrRange::from_start_size_unchecked(0x1000usize, 0x1000) };
+    /// assert_eq!(range.start, 0x1000);
+    /// assert_eq!(range.end, 0x2000);
+    /// ```
+    #[inline]
+    pub unsafe fn from_start_size_unchecked(start: A, size: usize) -> Self {
         Self {
             start,
             end: start.wrapping_add(size),
         }
     }
 
-    /// Returns `true` if the range is empty (`start >= end`).
+    /// Returns `true` if the range is empty.
+    ///
+    /// It's also guaranteed that `false` will be returned if the range is
+    /// invalid (i.e., `start > end`).
     ///
     /// # Example
     ///
@@ -82,7 +203,6 @@ where
     /// use memory_addr::AddrRange;
     ///
     /// assert!(AddrRange::new(0x1000usize, 0x1000).is_empty());
-    /// assert!(AddrRange::new(0x1000usize, 0x0fff).is_empty());
     /// assert!(!AddrRange::new(0x1000usize, 0x2000).is_empty());
     /// ```
     #[inline]
@@ -92,29 +212,20 @@ where
 
     /// Returns the size of the range.
     ///
-    /// Returns `0` if the range is empty, even if `start > end`.
-    ///
     /// # Example
     ///
     /// ```
     /// use memory_addr::AddrRange;
     ///
     /// assert_eq!(AddrRange::new(0x1000usize, 0x1000).size(), 0);
-    /// assert_eq!(AddrRange::new(0x1000usize, 0x0fff).size(), 0);
     /// assert_eq!(AddrRange::new(0x1000usize, 0x2000).size(), 0x1000);
     /// ```
     #[inline]
     pub fn size(self) -> usize {
-        if self.is_empty() {
-            0
-        } else {
-            self.end.offset_from(self.start) as usize
-        }
+        usize::wrapping_sub(self.end.into(), self.start.into())
     }
 
     /// Checks if the range contains the given address.
-    ///
-    /// Always returns `false` if the range is empty.
     ///
     /// # Example
     ///
@@ -126,63 +237,44 @@ where
     /// assert!(range.contains(0x1000));
     /// assert!(range.contains(0x1fff));
     /// assert!(!range.contains(0x2000));
-    ///
-    /// let empty_range = AddrRange::new(0x2000usize, 0x1000);
-    /// assert!(!empty_range.contains(0x0fff));
-    /// assert!(!empty_range.contains(0x1000));
-    /// assert!(!empty_range.contains(0x1fff));
-    /// assert!(!empty_range.contains(0x2000));
     /// ```
     #[inline]
     pub fn contains(self, addr: A) -> bool {
-        // this will always be `false` if the range is empty
         self.start <= addr && addr < self.end
     }
 
     /// Checks if the range contains the given address range.
     ///
-    /// Always returns `false` if either range is empty.
-    ///
     /// # Example
     ///
     /// ```
-    /// use memory_addr::AddrRange;
+    /// use memory_addr::{addr_range, AddrRange};
     ///
     /// let range = AddrRange::new(0x1000usize, 0x2000);
-    /// assert!(!range.contains_range(AddrRange::from(0x0usize..0xfff)));
-    /// assert!(!range.contains_range(AddrRange::from(0x0fffusize..0x1fff)));
-    /// assert!(range.contains_range(AddrRange::from(0x1001usize..0x1fff)));
-    /// assert!(range.contains_range(AddrRange::from(0x1000usize..0x2000)));
-    /// assert!(!range.contains_range(AddrRange::from(0x1001usize..0x2001)));
-    /// assert!(!range.contains_range(AddrRange::from(0x2001usize..0x3001)));
-    ///
-    /// let empty_range = AddrRange::new(0x2000usize, 0x1000);
-    /// assert!(!empty_range.contains_range(range));
-    /// assert!(!range.contains_range(empty_range));
+    /// assert!(!range.contains_range(addr_range!(0x0usize..0xfff)));
+    /// assert!(!range.contains_range(addr_range!(0x0fffusize..0x1fff)));
+    /// assert!(range.contains_range(addr_range!(0x1001usize..0x1fff)));
+    /// assert!(range.contains_range(addr_range!(0x1000usize..0x2000)));
+    /// assert!(!range.contains_range(addr_range!(0x1001usize..0x2001)));
+    /// assert!(!range.contains_range(addr_range!(0x2001usize..0x3001)));
     /// ```
     #[inline]
     pub fn contains_range(self, other: Self) -> bool {
-        !self.is_empty() && !other.is_empty() && self.start <= other.start && other.end <= self.end
+        self.start <= other.start && other.end <= self.end
     }
 
     /// Checks if the range is contained in the given address range.
     ///
-    /// Always returns `false` if either range is empty.
-    ///
     /// # Example
     ///
     /// ```
-    /// use memory_addr::AddrRange;
+    /// use memory_addr::{addr_range, AddrRange};
     ///
     /// let range = AddrRange::new(0x1000usize, 0x2000);
-    /// assert!(!range.contained_in(AddrRange::from(0xfffusize..0x1fff)));
-    /// assert!(!range.contained_in(AddrRange::from(0x1001usize..0x2001)));
-    /// assert!(range.contained_in(AddrRange::from(0xfffusize..0x2001)));
-    /// assert!(range.contained_in(AddrRange::from(0x1000usize..0x2000)));
-    ///
-    /// let empty_range = AddrRange::new(0x2000usize, 0x1000);
-    /// assert!(!empty_range.contained_in(range));
-    /// assert!(!range.contained_in(empty_range));
+    /// assert!(!range.contained_in(addr_range!(0xfffusize..0x1fff)));
+    /// assert!(!range.contained_in(addr_range!(0x1001usize..0x2001)));
+    /// assert!(range.contained_in(addr_range!(0xfffusize..0x2001)));
+    /// assert!(range.contained_in(addr_range!(0x1000usize..0x2000)));
     /// ```
     #[inline]
     pub fn contained_in(self, other: Self) -> bool {
@@ -191,40 +283,36 @@ where
 
     /// Checks if the range overlaps with the given address range.
     ///
-    /// Always returns `false` if either range is empty.
-    ///
     /// # Example
     ///
     /// ```
-    /// use memory_addr::AddrRange;
+    /// use memory_addr::{addr_range, AddrRange};
     ///
     /// let range = AddrRange::new(0x1000usize, 0x2000usize);
-    /// assert!(!range.overlaps(AddrRange::from(0xfffusize..0xfff)));
-    /// assert!(!range.overlaps(AddrRange::from(0x2000usize..0x2000)));
-    /// assert!(!range.overlaps(AddrRange::from(0xfffusize..0x1000)));
-    /// assert!(range.overlaps(AddrRange::from(0xfffusize..0x1001)));
-    /// assert!(range.overlaps(AddrRange::from(0x1fffusize..0x2001)));
-    /// assert!(range.overlaps(AddrRange::from(0xfffusize..0x2001)));
-    ///
-    /// let empty_range = AddrRange::new(0x2000usize, 0x1000);
-    /// assert!(!empty_range.overlaps(range));
-    /// assert!(!range.overlaps(empty_range));
+    /// assert!(!range.overlaps(addr_range!(0xfffusize..0xfff)));
+    /// assert!(!range.overlaps(addr_range!(0x2000usize..0x2000)));
+    /// assert!(!range.overlaps(addr_range!(0xfffusize..0x1000)));
+    /// assert!(range.overlaps(addr_range!(0xfffusize..0x1001)));
+    /// assert!(range.overlaps(addr_range!(0x1fffusize..0x2001)));
+    /// assert!(range.overlaps(addr_range!(0xfffusize..0x2001)));
     /// ```
     #[inline]
     pub fn overlaps(self, other: Self) -> bool {
-        !self.is_empty() && !other.is_empty() && self.start < other.end && other.start < self.end
+        self.start < other.end && other.start < self.end
     }
 }
 
 /// Conversion from [`Range`] to [`AddrRange`], provided that the type of the
 /// endpoints can be converted to the address type `A`.
-impl<A, T> From<Range<T>> for AddrRange<A>
+impl<A, T> TryFrom<Range<T>> for AddrRange<A>
 where
     A: MemoryAddr + From<T>,
 {
+    type Error = ();
+
     #[inline]
-    fn from(range: Range<T>) -> Self {
-        Self::new(range.start.into(), range.end.into())
+    fn try_from(range: Range<T>) -> Result<Self, Self::Error> {
+        Self::try_new(range.start.into(), range.end.into()).ok_or(())
     }
 }
 
@@ -279,7 +367,36 @@ pub type VirtAddrRange = AddrRange<VirtAddr>;
 /// A range of physical addresses [`PhysAddr`].
 pub type PhysAddrRange = AddrRange<PhysAddr>;
 
-/// Converts the given range expression into [`VirtAddrRange`].
+/// Converts the given range expression into [`AddrRange`]. Panics if the range
+/// is invalid.
+///
+/// The concrete address type is inferred from the context.
+///
+/// # Example
+///
+/// ```
+/// use memory_addr::{addr_range, AddrRange};
+///
+/// let range: AddrRange<usize> = addr_range!(0x1000usize..0x2000);
+/// assert_eq!(range.start, 0x1000usize);
+/// assert_eq!(range.end, 0x2000usize);
+/// ```
+///
+/// And this will panic:
+///
+/// ```should_panic
+/// # use memory_addr::{addr_range, AddrRange};
+/// let _: AddrRange<usize> = addr_range!(0x2000usize..0x1000);
+/// ```
+#[macro_export]
+macro_rules! addr_range {
+    ($range:expr) => {
+        $crate::AddrRange::try_from($range).unwrap()
+    };
+}
+
+/// Converts the given range expression into [`VirtAddrRange`]. Panics if the
+/// range is invalid.
 ///
 /// # Example
 ///
@@ -290,14 +407,22 @@ pub type PhysAddrRange = AddrRange<PhysAddr>;
 /// assert_eq!(range.start, 0x1000.into());
 /// assert_eq!(range.end, 0x2000.into());
 /// ```
+///
+/// And this will panic:
+///
+/// ```should_panic
+/// # use memory_addr::va_range;
+/// let _ = va_range!(0x2000..0x1000);
+/// ```
 #[macro_export]
 macro_rules! va_range {
     ($range:expr) => {
-        $crate::VirtAddrRange::from($range)
+        $crate::VirtAddrRange::try_from($range).unwrap()
     };
 }
 
-/// Converts the given range expression into [`PhysAddrRange`].
+/// Converts the given range expression into [`PhysAddrRange`]. Panics if the
+/// range is invalid.
 ///
 /// # Example
 ///
@@ -308,10 +433,17 @@ macro_rules! va_range {
 /// assert_eq!(range.start, 0x1000.into());
 /// assert_eq!(range.end, 0x2000.into());
 /// ```
+///
+/// And this will panic:
+///
+/// ```should_panic
+/// # use memory_addr::pa_range;
+/// let _ = pa_range!(0x2000..0x1000);
+/// ```
 #[macro_export]
 macro_rules! pa_range {
     ($range:expr) => {
-        $crate::PhysAddrRange::from($range)
+        $crate::PhysAddrRange::try_from($range).unwrap()
     };
 }
 
@@ -321,7 +453,7 @@ mod test {
 
     #[test]
     fn test_range_format() {
-        let range = va_range!(0xfec000usize..0xfff000usize);
+        let range = va_range!(0xfec000..0xfff000usize);
 
         assert_eq!(format!("{:?}", range), "VA:0xfec000..VA:0xfff000");
         assert_eq!(format!("{:x}", range), "VA:0xfec000..VA:0xfff000");
@@ -348,28 +480,28 @@ mod test {
         assert!(range.contains(va!(0x1080)));
         assert!(!range.contains(va!(0x2000)));
 
-        assert!(!range.contains_range((0xfff..0x1fff).into()));
-        assert!(!range.contains_range((0xfff..0x2000).into()));
-        assert!(!range.contains_range((0xfff..0x2001).into()));
-        assert!(range.contains_range((0x1000..0x1fff).into()));
-        assert!(range.contains_range((0x1000..0x2000).into()));
-        assert!(!range.contains_range((0x1000..0x2001).into()));
-        assert!(range.contains_range((0x1001..0x1fff).into()));
-        assert!(range.contains_range((0x1001..0x2000).into()));
-        assert!(!range.contains_range((0x1001..0x2001).into()));
+        assert!(!range.contains_range(addr_range!(0xfff..0x1fff)));
+        assert!(!range.contains_range(addr_range!(0xfff..0x2000)));
+        assert!(!range.contains_range(va_range!(0xfff..0x2001))); // test both `va_range!` and `addr_range!`
+        assert!(range.contains_range(va_range!(0x1000..0x1fff)));
+        assert!(range.contains_range(addr_range!(0x1000..0x2000)));
+        assert!(!range.contains_range(addr_range!(0x1000..0x2001)));
+        assert!(range.contains_range(va_range!(0x1001..0x1fff)));
+        assert!(range.contains_range(va_range!(0x1001..0x2000)));
+        assert!(!range.contains_range(va_range!(0x1001..0x2001)));
         assert!(!range.contains_range(VirtAddrRange::from_start_size(0xfff.into(), 0x1)));
         assert!(!range.contains_range(VirtAddrRange::from_start_size(0x2000.into(), 0x1)));
 
-        assert!(range.contained_in((0xfff..0x2000).into()));
-        assert!(range.contained_in((0x1000..0x2000).into()));
-        assert!(range.contained_in((0x1000..0x2001).into()));
+        assert!(range.contained_in(addr_range!(0xfff..0x2000)));
+        assert!(range.contained_in(addr_range!(0x1000..0x2000)));
+        assert!(range.contained_in(va_range!(0x1000..0x2001)));
 
-        assert!(!range.overlaps((0x800..0x1000).into()));
-        assert!(range.overlaps((0x800..0x1001).into()));
-        assert!(range.overlaps((0x1800..0x2000).into()));
-        assert!(range.overlaps((0x1800..0x2001).into()));
-        assert!(!range.overlaps((0x2000..0x2800).into()));
-        assert!(range.overlaps((0xfff..0x2001).into()));
+        assert!(!range.overlaps(addr_range!(0x800..0x1000)));
+        assert!(range.overlaps(addr_range!(0x800..0x1001)));
+        assert!(range.overlaps(addr_range!(0x1800..0x2000)));
+        assert!(range.overlaps(va_range!(0x1800..0x2001)));
+        assert!(!range.overlaps(va_range!(0x2000..0x2800)));
+        assert!(range.overlaps(va_range!(0xfff..0x2001)));
 
         let default_range: VirtAddrRange = Default::default();
         assert!(default_range.is_empty());
