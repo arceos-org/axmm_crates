@@ -72,7 +72,7 @@ impl<B: MappingBackend> MemorySet<B> {
         // brute force: try each area's end address as the start.
         let mut last_end = hint.max(limit.start);
         for (&addr, area) in self.areas.iter() {
-            if last_end.add(size) <= addr {
+            if last_end.checked_add(size).is_some_and(|end| end <= addr) {
                 return Some(last_end);
             }
             last_end = area.end();
@@ -203,8 +203,7 @@ impl<B: MappingBackend> MemorySet<B> {
     ) -> MappingResult {
         let end = start.add(size);
         let mut to_insert = Vec::new();
-        for (area_start, area) in self.areas.iter_mut() {
-            let area_start = *area_start;
+        for (&area_start, area) in self.areas.iter_mut() {
             let area_end = area.end();
 
             if let Some(new_flags) = update_flags(area.flags()) {

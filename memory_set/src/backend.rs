@@ -23,8 +23,10 @@ pub trait MappingBackend: Clone {
         flags: Self::Flags,
         page_table: &mut Self::PageTable,
     ) -> bool;
+
     /// What to do when unmaping a memory region within the area.
     fn unmap(&self, start: Self::Addr, size: usize, page_table: &mut Self::PageTable) -> bool;
+
     /// What to do when changing access flags.
     fn protect(
         &self,
