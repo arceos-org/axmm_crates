@@ -1,6 +1,6 @@
 use core::fmt;
 
-use memory_addr::AddrRange;
+use memory_addr::{AddrRange, MemoryAddr};
 
 use crate::{MappingBackend, MappingError, MappingResult};
 
@@ -107,7 +107,7 @@ impl<B: MappingBackend> MemoryArea<B> {
         if !self.backend.unmap(self.start(), unmap_size, page_table) {
             return Err(MappingError::BadState);
         }
-        self.va_range.start = (self.va_range.start.into() + unmap_size).into();
+        self.va_range.start = self.va_range.start.add(unmap_size);
         Ok(())
     }
 
@@ -121,14 +121,13 @@ impl<B: MappingBackend> MemoryArea<B> {
         page_table: &mut B::PageTable,
     ) -> MappingResult {
         let unmap_size = self.size() - new_size;
-        if !self.backend.unmap(
-            (self.start().into() + new_size).into(),
-            unmap_size,
-            page_table,
-        ) {
+        if !self
+            .backend
+            .unmap(self.start().add(new_size), unmap_size, page_table)
+        {
             return Err(MappingError::BadState);
         }
-        self.va_range.end = (self.va_range.end.into() - unmap_size).into();
+        self.va_range.end = self.va_range.end.sub(unmap_size);
         Ok(())
     }
 
@@ -140,14 +139,14 @@ impl<B: MappingBackend> MemoryArea<B> {
     /// Returns `None` if the given position is not in the memory area, or one
     /// of the parts is empty after splitting.
     pub(crate) fn split(&mut self, pos: B::Addr) -> Option<Self> {
-        let pos: usize = pos.into();
-
-        let start: usize = self.start().into();
-        let end: usize = self.end().into();
-        // todo: is it a bug when `pos == end - 1`?
-        if start < pos && pos < end {
-            let new_area = Self::new(pos.into(), end - pos, self.flags, self.backend.clone());
-            self.va_range.end = pos.into();
+        if self.start() < pos && pos < self.end() {
+            let new_area = Self::new(
+                pos,
+                self.end().offset_from(pos) as usize,
+                self.flags,
+                self.backend.clone(),
+            );
+            self.va_range.end = pos;
             Some(new_area)
         } else {
             None

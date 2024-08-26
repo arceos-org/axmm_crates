@@ -5,8 +5,8 @@ use memory_addr::MemoryAddr;
 ///
 /// The backend can be different for different memory areas. e.g., for linear
 /// mappings, the target physical address is known when it is added to the page
-/// table. For lazy mappings, an empty mapping needs to be added to the page table
-/// to trigger a page fault.
+/// table. For lazy mappings, an empty mapping needs to be added to the page
+/// table to trigger a page fault.
 pub trait MappingBackend: Clone {
     /// The address type used in the memory area.
     type Addr: MemoryAddr;
