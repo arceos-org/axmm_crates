@@ -103,18 +103,16 @@ impl<B: MappingBackend> MemoryArea<B> {
     /// The start address of the memory area is increased by `new_size`. The
     /// shrunk part is unmapped.
     ///
-    /// `new_size` must be greater than 0 and less than the current size,
-    /// otherwise this function returns an error.
+    /// `new_size` must be greater than 0 and less than the current size.
     pub(crate) fn shrink_left(
         &mut self,
         new_size: usize,
         page_table: &mut B::PageTable,
     ) -> MappingResult {
+        assert!(new_size > 0 && new_size < self.size());
+
         let old_size = self.size();
-        let unmap_size = old_size
-            .checked_sub(new_size)
-            .filter(|&s| s > 0 && s < old_size)
-            .ok_or(MappingError::InvalidParam)?;
+        let unmap_size = old_size - new_size;
 
         if !self.backend.unmap(self.start(), unmap_size, page_table) {
             return Err(MappingError::BadState);
@@ -131,18 +129,15 @@ impl<B: MappingBackend> MemoryArea<B> {
     /// The end address of the memory area is decreased by `new_size`. The
     /// shrunk part is unmapped.
     ///
-    /// `new_size` must be greater than 0 and less than the current size,
-    /// otherwise this function returns an error.
+    /// `new_size` must be greater than 0 and less than the current size.
     pub(crate) fn shrink_right(
         &mut self,
         new_size: usize,
         page_table: &mut B::PageTable,
     ) -> MappingResult {
+        assert!(new_size > 0 && new_size < self.size());
         let old_size = self.size();
-        let unmap_size = old_size
-            .checked_sub(new_size)
-            .filter(|&s| s > 0 && s < old_size)
-            .ok_or(MappingError::InvalidParam)?;
+        let unmap_size = old_size - new_size;
 
         // Use wrapping_add to avoid overflow check.
         // Safety: `new_size` is less than the current size, so it will never overflow.
