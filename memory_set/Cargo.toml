@@ -13,4 +13,4 @@ repository.workspace = true
 categories.workspace = true
 
 [dependencies]
-memory_addr = { path = "../memory_addr", version = "0.3.0-dev" }
+memory_addr = { path = "../memory_addr", version = "0.3.0" }
