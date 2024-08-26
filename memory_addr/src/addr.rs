@@ -98,12 +98,14 @@ pub trait MemoryAddr:
 
     /// Adds a given offset to the address to get a new address.
     /// 
-    /// This method will panic on overflow.
+    /// # Panics
+    /// 
+    /// Panics if the result overflows.
     #[inline]
     #[must_use = "this returns a new address, without modifying the original"]
     fn offset(self, offset: isize) -> Self {
         // todo: use `strict_add_signed` when it's stable.
-        Self::from(usize::checked_add_signed(self.into(), offset).unwrap())
+        Self::from(usize::checked_add_signed(self.into(), offset).expect("overflow in `MemoryAddr::offset`"))
     }
 
     /// Adds a given offset to the address to get a new address.
@@ -117,7 +119,9 @@ pub trait MemoryAddr:
 
     /// Gets the distance between two addresses.
     /// 
-    /// This method will panic if the result is not representable by `isize`.
+    /// # Panics
+    /// 
+    /// Panics if the result is not representable by `isize`.
     #[inline]
     #[must_use = "this function has no side effects, so it can be removed if the return value is not used"]
     fn offset_from(self, base: Self) -> isize {
@@ -132,12 +136,15 @@ pub trait MemoryAddr:
 
     /// Adds a given **unsigned** offset to the address to get a new address.
     /// 
-    /// This method is similar to `offset`, but it takes an unsigned offset. This method
-    /// will also panic on overflow.
+    /// This method is similar to `offset`, but it takes an unsigned offset.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the result overflows.
     #[inline]
     #[must_use = "this returns a new address, without modifying the original"]
     fn add(self, rhs: usize) -> Self {
-        Self::from(usize::checked_add(self.into(), rhs).unwrap())
+        Self::from(usize::checked_add(self.into(), rhs).expect("overflow in `MemoryAddr::add`"))
     }
 
     /// Adds a given **unsigned** offset to the address to get a new address.
@@ -171,12 +178,15 @@ pub trait MemoryAddr:
 
     /// Subtracts a given **unsigned** offset from the address to get a new address.
     /// 
-    /// This method is similar to `offset(-rhs)`, but it takes an unsigned offset. This method
-    /// will also panic on overflowed.
+    /// This method is similar to `offset(-rhs)`, but it takes an unsigned offset. 
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the result overflows.
     #[inline]
     #[must_use = "this returns a new address, without modifying the original"]
     fn sub(self, rhs: usize) -> Self {
-        Self::from(usize::checked_sub(self.into(), rhs).unwrap())
+        Self::from(usize::checked_sub(self.into(), rhs).expect("overflow in `MemoryAddr::sub`"))
     }
 
     /// Subtracts a given **unsigned** offset from the address to get a new address.
@@ -206,6 +216,45 @@ pub trait MemoryAddr:
     #[must_use = "this returns a new address, without modifying the original"]
     fn checked_sub(self, rhs: usize) -> Option<Self> {
         usize::checked_sub(self.into(), rhs).map(Self::from)
+    }
+
+    /// Subtracts another address from the address to get the offset between them.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the result overflows.
+    #[inline]
+    #[must_use = "this function has no side effects, so it can be removed if the return value is not used"]
+    fn sub_addr(self, rhs: Self) -> usize {
+        usize::checked_sub(self.into(), rhs.into()).expect("overflow in `MemoryAddr::sub_addr`")
+    }
+
+    /// Subtracts another address from the address to get the offset between them.
+    /// 
+    /// Unlike `sub_addr`, this method always wraps around on overflow.
+    #[inline]
+    #[must_use = "this function has no side effects, so it can be removed if the return value is not used"]
+    fn wrapping_sub_addr(self, rhs: Self) -> usize {
+        usize::wrapping_sub(self.into(), rhs.into())
+    }
+
+    /// Subtracts another address from the address to get the offset between them.
+    /// 
+    /// Unlike `sub_addr`, this method returns a tuple of the offset and a boolean indicating
+    /// whether the subtraction has overflowed.
+    #[inline]
+    #[must_use = "this function has no side effects, so it can be removed if the return value is not used"]
+    fn overflowing_sub_addr(self, rhs: Self) -> (usize, bool) {
+        usize::overflowing_sub(self.into(), rhs.into())
+    }
+
+    /// Subtracts another address from the address to get the offset between them.
+    /// 
+    /// Unlike `sub_addr`, this method returns `None` on overflow.
+    #[inline]
+    #[must_use = "this function has no side effects, so it can be removed if the return value is not used"]
+    fn checked_sub_addr(self, rhs: Self) -> Option<usize> {
+        usize::checked_sub(self.into(), rhs.into())
     }
 }
 
@@ -576,6 +625,8 @@ mod test {
         assert_eq!(addr.wrapping_add(offset), offset_addr);
         assert_eq!(offset_addr.sub(offset), addr);
         assert_eq!(offset_addr.wrapping_sub(offset), addr);
+        assert_eq!(offset_addr.sub_addr(addr), offset);
+        assert_eq!(offset_addr.wrapping_sub_addr(addr), offset);
 
         assert_eq!(addr + offset, offset_addr);
         assert_eq!(offset_addr - offset, addr);
@@ -595,6 +646,7 @@ mod test {
         assert_eq!(offset_addr.wrapping_offset(-(offset as isize)), addr);
         assert_eq!(addr.wrapping_add(offset), offset_addr);
         assert_eq!(offset_addr.wrapping_sub(offset), addr);
+        assert_eq!(offset_addr.wrapping_sub_addr(addr), offset);
     }
 
     #[test]
@@ -614,6 +666,12 @@ mod test {
             Some(high_addr.wrapping_add(small_offset))
         );
         assert_eq!(high_addr.checked_add(large_offset), None);
+
+        assert_eq!(
+            high_addr.checked_sub_addr(low_addr),
+            Some(usize::MAX - 0x200usize)
+        );
+        assert_eq!(low_addr.checked_sub_addr(high_addr), None);
     }
 
     #[test]
@@ -638,6 +696,14 @@ mod test {
         assert_eq!(
             high_addr.overflowing_add(large_offset),
             (high_addr.wrapping_add(large_offset), true)
+        );
+        assert_eq!(
+            high_addr.overflowing_sub_addr(low_addr),
+            (high_addr.wrapping_sub_addr(low_addr), false)
+        );
+        assert_eq!(
+            low_addr.overflowing_sub_addr(high_addr),
+            (low_addr.wrapping_sub_addr(high_addr), true)
         );
     }
 
@@ -674,6 +740,13 @@ mod test {
     pub fn test_addr_sub_underflow() {
         let addr = ExampleAddr::from_usize(0);
         let _ = addr.sub(1);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_addr_sub_addr_overflow() {
+        let addr = ExampleAddr::from_usize(0);
+        let _ = addr.sub_addr(ExampleAddr::from_usize(1));
     }
 
     #[test]

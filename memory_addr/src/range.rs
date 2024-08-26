@@ -222,7 +222,7 @@ where
     /// ```
     #[inline]
     pub fn size(self) -> usize {
-        usize::wrapping_sub(self.end.into(), self.start.into())
+        self.end.wrapping_sub_addr(self.start)
     }
 
     /// Checks if the range contains the given address.
@@ -391,7 +391,7 @@ pub type PhysAddrRange = AddrRange<PhysAddr>;
 #[macro_export]
 macro_rules! addr_range {
     ($range:expr) => {
-        $crate::AddrRange::try_from($range).unwrap()
+        $crate::AddrRange::try_from($range).expect("invalid address range in `addr_range!`")
     };
 }
 
@@ -417,7 +417,7 @@ macro_rules! addr_range {
 #[macro_export]
 macro_rules! va_range {
     ($range:expr) => {
-        $crate::VirtAddrRange::try_from($range).unwrap()
+        $crate::VirtAddrRange::try_from($range).expect("invalid address range in `va_range!`")
     };
 }
 
@@ -443,7 +443,7 @@ macro_rules! va_range {
 #[macro_export]
 macro_rules! pa_range {
     ($range:expr) => {
-        $crate::PhysAddrRange::try_from($range).unwrap()
+        $crate::PhysAddrRange::try_from($range).expect("invalid address range in `pa_range!`")
     };
 }
 
