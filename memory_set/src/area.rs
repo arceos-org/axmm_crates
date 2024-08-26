@@ -17,6 +17,10 @@ pub struct MemoryArea<B: MappingBackend> {
 
 impl<B: MappingBackend> MemoryArea<B> {
     /// Creates a new memory area.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start + size` overflows.
     pub fn new(start: B::Addr, size: usize, flags: B::Flags, backend: B) -> Self {
         Self {
             va_range: AddrRange::from_start_size(start, size),
@@ -98,16 +102,27 @@ impl<B: MappingBackend> MemoryArea<B> {
     ///
     /// The start address of the memory area is increased by `new_size`. The
     /// shrunk part is unmapped.
+    ///
+    /// `new_size` must be greater than 0 and less than the current size,
+    /// otherwise this function returns an error.
     pub(crate) fn shrink_left(
         &mut self,
         new_size: usize,
         page_table: &mut B::PageTable,
     ) -> MappingResult {
-        let unmap_size = self.size() - new_size;
+        let old_size = self.size();
+        let unmap_size = old_size
+            .checked_sub(new_size)
+            .filter(|&s| s > 0 && s < old_size)
+            .ok_or(MappingError::InvalidParam)?;
+
         if !self.backend.unmap(self.start(), unmap_size, page_table) {
             return Err(MappingError::BadState);
         }
-        self.va_range.start = self.va_range.start.add(unmap_size);
+        // Use wrapping_add to avoid overflow check.
+        // Safety: `unmap_size` is less than the current size, so it will never
+        // overflow.
+        self.va_range.start = self.va_range.start.wrapping_add(unmap_size);
         Ok(())
     }
 
@@ -115,19 +130,30 @@ impl<B: MappingBackend> MemoryArea<B> {
     ///
     /// The end address of the memory area is decreased by `new_size`. The
     /// shrunk part is unmapped.
+    ///
+    /// `new_size` must be greater than 0 and less than the current size,
+    /// otherwise this function returns an error.
     pub(crate) fn shrink_right(
         &mut self,
         new_size: usize,
         page_table: &mut B::PageTable,
     ) -> MappingResult {
-        let unmap_size = self.size() - new_size;
-        if !self
-            .backend
-            .unmap(self.start().add(new_size), unmap_size, page_table)
-        {
+        let old_size = self.size();
+        let unmap_size = old_size
+            .checked_sub(new_size)
+            .filter(|&s| s > 0 && s < old_size)
+            .ok_or(MappingError::InvalidParam)?;
+
+        // Use wrapping_add to avoid overflow check.
+        // Safety: `new_size` is less than the current size, so it will never overflow.
+        let unmap_start = self.start().wrapping_add(new_size);
+
+        if !self.backend.unmap(unmap_start, unmap_size, page_table) {
             return Err(MappingError::BadState);
         }
-        self.va_range.end = self.va_range.end.sub(unmap_size);
+
+        // Use wrapping_sub to avoid overflow check, same as above.
+        self.va_range.end = self.va_range.end.wrapping_sub(unmap_size);
         Ok(())
     }
 
@@ -142,7 +168,9 @@ impl<B: MappingBackend> MemoryArea<B> {
         if self.start() < pos && pos < self.end() {
             let new_area = Self::new(
                 pos,
-                self.end().offset_from(pos) as usize,
+                // Use wrapping_sub_addr to avoid overflow check. It is safe because
+                // `pos` is within the memory area.
+                self.end().wrapping_sub_addr(pos),
                 self.flags,
                 self.backend.clone(),
             );

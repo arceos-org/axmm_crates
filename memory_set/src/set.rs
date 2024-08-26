@@ -77,7 +77,10 @@ impl<B: MappingBackend> MemorySet<B> {
             }
             last_end = area.end();
         }
-        if last_end.add(size) <= limit.end {
+        if last_end
+            .checked_add(size)
+            .is_some_and(|end| end <= limit.end)
+        {
             Some(last_end)
         } else {
             None
@@ -127,7 +130,8 @@ impl<B: MappingBackend> MemorySet<B> {
         size: usize,
         page_table: &mut B::PageTable,
     ) -> MappingResult {
-        let range = AddrRange::from_start_size(start, size);
+        let range =
+            AddrRange::try_from_start_size(start, size).ok_or(MappingError::InvalidParam)?;
         if range.is_empty() {
             return Ok(());
         }
@@ -150,11 +154,11 @@ impl<B: MappingBackend> MemorySet<B> {
             if before_end > start {
                 if before_end <= end {
                     // the unmapped area is at the end of `before`.
-                    before.shrink_right(start.offset_from(before_start) as usize, page_table)?;
+                    before.shrink_right(start.sub_addr(before_start), page_table)?;
                 } else {
                     // the unmapped area is in the middle `before`, need to split.
                     let right_part = before.split(end).unwrap();
-                    before.shrink_right(start.offset_from(before_start) as usize, page_table)?;
+                    before.shrink_right(start.sub_addr(before_start), page_table)?;
                     assert_eq!(right_part.start().into(), Into::<usize>::into(end));
                     self.areas.insert(end, right_part);
                 }
@@ -167,7 +171,7 @@ impl<B: MappingBackend> MemorySet<B> {
             if after_start < end {
                 // the unmapped area is at the start of `after`.
                 let mut new_area = self.areas.remove(&after_start).unwrap();
-                new_area.shrink_left(after_end.offset_from(end) as usize, page_table)?;
+                new_area.shrink_left(after_end.sub_addr(end), page_table)?;
                 assert_eq!(new_area.start().into(), Into::<usize>::into(end));
                 self.areas.insert(end, new_area);
             }
@@ -201,7 +205,7 @@ impl<B: MappingBackend> MemorySet<B> {
         update_flags: impl Fn(B::Flags) -> Option<B::Flags>,
         page_table: &mut B::PageTable,
     ) -> MappingResult {
-        let end = start.add(size);
+        let end = start.checked_add(size).ok_or(MappingError::InvalidParam)?;
         let mut to_insert = Vec::new();
         for (&area_start, area) in self.areas.iter_mut() {
             let area_end = area.end();
