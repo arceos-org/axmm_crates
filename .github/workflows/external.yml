@@ -7,11 +7,11 @@ jobs:
     uses: arceos-org/arceos/.github/workflows/build.yml@external_test
     with:
       # The package name that need to be tested
-      CallerPackage: memory_addr
+      package: memory_addr
 
   external-test-memory_set:
     uses: arceos-org/arceos/.github/workflows/test.yml@external_test
     with:
       # The package name that need to be tested
-      CallerPackage: memory_addr
+      package: memory_addr
 
