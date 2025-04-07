@@ -12,8 +12,20 @@ pub use self::range::{AddrRange, PhysAddrRange, VirtAddrRange};
 /// The size of a 4K page (4096 bytes).
 pub const PAGE_SIZE_4K: usize = 0x1000;
 
+/// The size of a 2M page (2097152 bytes).
+pub const PAGE_SIZE_2M: usize = 0x200000;
+
+/// The size of a 1G page (1073741824 bytes).
+pub const PAGE_SIZE_1G: usize = 0x40000000;
+
 /// A [`PageIter`] for 4K pages.
 pub type PageIter4K<A> = PageIter<PAGE_SIZE_4K, A>;
+
+/// A [`PageIter`] for 2M pages.
+pub type PageIter2M<A> = PageIter<PAGE_SIZE_2M, A>;
+
+/// A [`PageIter`] for 1G pages.
+pub type PageIter1G<A> = PageIter<PAGE_SIZE_1G, A>;
 
 /// Align address downwards.
 ///
