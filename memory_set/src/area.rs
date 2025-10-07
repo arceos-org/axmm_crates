@@ -113,6 +113,10 @@ impl<B: MappingBackend> MemoryArea<B> {
 
         let old_size = self.size();
         let unmap_size = old_size - new_size;
+        let new_start = self.va_range.start.wrapping_add(unmap_size);
+        if !new_start.is_aligned(self.backend().page_size()) {
+            return Err(MappingError::InvalidParam);
+        }
 
         if !self.backend.unmap(self.start(), unmap_size, page_table) {
             return Err(MappingError::BadState);
@@ -143,6 +147,10 @@ impl<B: MappingBackend> MemoryArea<B> {
         // Safety: `new_size` is less than the current size, so it will never overflow.
         let unmap_start = self.start().wrapping_add(new_size);
 
+        if !unmap_start.is_aligned(self.backend().page_size()) {
+            return Err(MappingError::InvalidParam);
+        }
+
         if !self.backend.unmap(unmap_start, unmap_size, page_table) {
             return Err(MappingError::BadState);
         }
@@ -160,6 +168,13 @@ impl<B: MappingBackend> MemoryArea<B> {
     /// Returns `None` if the given position is not in the memory area, or one
     /// of the parts is empty after splitting.
     pub(crate) fn split(&mut self, pos: B::Addr) -> Option<Self> {
+        // Do not split on addresses that are not aligned to the backend's
+        // page size. This is important for backends that use large pages
+        // (e.g. 2MiB): such mappings cannot be split at arbitrary positions.
+        if !pos.is_aligned(self.backend().page_size()) {
+            return None;
+        }
+
         if self.start() < pos && pos < self.end() {
             let new_area = Self::new(
                 pos,

@@ -15,6 +15,17 @@ pub trait MappingBackend: Clone {
     /// The page table type used in the memory area.
     type PageTable;
 
+    /// The page size (in bytes) used by this backend.
+    ///
+    /// This is mainly used by [`MemoryArea`](crate::MemoryArea) to avoid
+    /// splitting a mapping at positions that are not page-aligned for this
+    /// backend. By default, the value is `1`, which means "no additional
+    /// restriction" (any position is treated as aligned).
+    #[inline]
+    fn page_size(&self) -> usize {
+        1
+    }
+
     /// What to do when mapping a region within the area with the given flags.
     fn map(
         &self,
