@@ -6,7 +6,7 @@ mod iter;
 mod range;
 
 pub use self::addr::{MemoryAddr, PhysAddr, VirtAddr};
-pub use self::iter::PageIter;
+pub use self::iter::{DynPageIter, PageIter};
 pub use self::range::{AddrRange, PhysAddrRange, VirtAddrRange};
 
 /// The size of a 4K page (4096 bytes).
