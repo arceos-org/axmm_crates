@@ -14,3 +14,7 @@ repository = "https://github.com/arceos-org/axmm_crates"
 # keywords = ["let member have their own keywords"]
 categories = ["os", "memory-management", "no-std"]
 rust-version = "1.70.0"
+
+[patch.crates-io]
+axerrno = { git = "https://github.com/Starry-OS/axerrno.git" }
+memory_addr = { path = "memory_addr" }
