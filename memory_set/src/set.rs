@@ -172,7 +172,22 @@ impl<B: MappingBackend> MemorySet<B> {
                     before.shrink_right(start.sub_addr(before_start), page_table)?;
                 } else {
                     // the unmapped area is in the middle `before`, need to split.
-                    let right_part = before.split(end).unwrap();
+                    // For backends with a page size larger than 1, we don't support
+                    // unmapping sub-page regions inside a huge page. Require that
+                    // both the start and end of the unmapped range, as well as its
+                    // length, are aligned to the backend page size.
+                    let page_size = before.backend().page_size();
+                    if page_size > 1 {
+                        let unmap_len = end.sub_addr(start);
+                        if !start.is_aligned(page_size)
+                            || !end.is_aligned(page_size)
+                            || (unmap_len % page_size) != 0
+                        {
+                            return Err(MappingError::InvalidParam);
+                        }
+                    }
+                    let right_part =
+                        before.split(end).ok_or(MappingError::InvalidParam)?;
                     before.shrink_right(start.sub_addr(before_start), page_table)?;
                     assert_eq!(right_part.start().into(), Into::<usize>::into(end));
                     self.areas.insert(end, right_part);
@@ -186,7 +201,11 @@ impl<B: MappingBackend> MemorySet<B> {
             if after_start < end {
                 // the unmapped area is at the start of `after`.
                 let mut new_area = self.areas.remove(&after_start).unwrap();
-                new_area.shrink_left(after_end.sub_addr(end), page_table)?;
+                if let Err(_) = new_area.shrink_left(after_end.sub_addr(end), page_table) {
+                    self.areas.insert(after_start, new_area);
+                    return Err(MappingError::InvalidParam);
+                }               
+                
                 assert_eq!(new_area.start().into(), Into::<usize>::into(end));
                 self.areas.insert(end, new_area);
             }
@@ -221,6 +240,9 @@ impl<B: MappingBackend> MemorySet<B> {
         page_table: &mut B::PageTable,
     ) -> MappingResult {
         let end = start.checked_add(size).ok_or(MappingError::InvalidParam)?;
+        if size == 0 {
+            return Ok(());
+        }
         let mut to_insert = Vec::new();
         for (&area_start, area) in self.areas.iter_mut() {
             let area_end = area.end();
@@ -242,7 +264,17 @@ impl<B: MappingBackend> MemorySet<B> {
                 } else if area_start < start && area_end > end {
                     //        [ prot ]
                     // [ left | area | right ]
-                    let right_part = area.split(end).unwrap();
+                    // The middle part [start, end) must be aligned to the backend's
+                    // page size; otherwise, protecting "small pages" within a huge
+                    // page is not supported.
+                    let page_size = area.backend().page_size();
+                    if page_size > 1
+                        && (!start.is_aligned(page_size) || (size % page_size) != 0)
+                    {
+                        return Err(MappingError::InvalidParam);
+                    }
+                    let right_part =
+                        area.split(end).ok_or(MappingError::InvalidParam)?;
                     area.set_end(start);
 
                     let mut middle_part =
@@ -255,7 +287,8 @@ impl<B: MappingBackend> MemorySet<B> {
                 } else if area_end > end {
                     // [    prot ]
                     //   [  area | right ]
-                    let right_part = area.split(end).unwrap();
+                    let right_part =
+                        area.split(end).ok_or(MappingError::InvalidParam)?;
                     area.protect_area(new_flags, page_table)?;
                     area.set_flags(new_flags);
 
@@ -263,7 +296,8 @@ impl<B: MappingBackend> MemorySet<B> {
                 } else {
                     //        [ prot    ]
                     // [ left |  area ]
-                    let mut right_part = area.split(start).unwrap();
+                    let mut right_part =
+                        area.split(start).ok_or(MappingError::InvalidParam)?;
                     right_part.protect_area(new_flags, page_table)?;
                     right_part.set_flags(new_flags);
 
