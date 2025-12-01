@@ -1,4 +1,4 @@
-use memory_addr::{va_range, MemoryAddr, VirtAddr};
+use memory_addr::{va_range, MemoryAddr, VirtAddr, PAGE_SIZE_2M, PAGE_SIZE_1G};
 
 use crate::{MappingBackend, MappingError, MemoryArea, MemorySet};
 
@@ -50,6 +50,55 @@ impl MappingBackend for MockBackend {
             }
             *entry = new_flags;
         }
+        true
+    }
+}
+
+#[derive(Clone)]
+struct HugeBackend {
+    page_size: usize,
+}
+
+type HugeMemorySet = MemorySet<HugeBackend>;
+
+impl MappingBackend for HugeBackend {
+    type Addr = VirtAddr;
+    type Flags = MockFlags;
+    type PageTable = ();
+
+    fn page_size(&self) -> usize {
+        self.page_size
+    }
+
+    fn map(
+        &self,
+        start: VirtAddr,
+        size: usize,
+        flags: MockFlags,
+        _pt: &mut (),
+    ) -> bool {
+        assert!(start.is_aligned(self.page_size));
+        assert_eq!(size % self.page_size, 0);
+        let _ = flags; // flags are not checked in this mock backend
+        true
+    }
+
+    fn unmap(&self, start: VirtAddr, size: usize, _pt: &mut ()) -> bool {
+        assert!(start.is_aligned(self.page_size));
+        assert_eq!(size % self.page_size, 0);
+        true
+    }
+
+    fn protect(
+        &self,
+        start: VirtAddr,
+        size: usize,
+        new_flags: MockFlags,
+        _pt: &mut (),
+    ) -> bool {
+        assert!(start.is_aligned(self.page_size));
+        assert_eq!(size % self.page_size, 0);
+        let _ = new_flags;
         true
     }
 }
@@ -357,4 +406,253 @@ fn test_find_free_area() {
 
     let addr = set.find_free_area(0xf001.into(), 0x1000, va_range!(0..MAX_ADDR), 0x1000);
     assert_eq!(addr, None);
+}
+
+/// `MemoryArea::split` must reject split positions that are not aligned to the
+/// backend page size for large-page backends, while still accepting aligned
+/// positions.
+#[test]
+fn test_large_page_split_alignment() {
+    // Helper to test alignment behaviour for a given huge page size.
+    fn check_alignment(page_size: usize) {
+        let backend = HugeBackend { page_size };
+        let mut area = MemoryArea::new(0.into(), 4 * page_size, 1, backend);
+
+        // Unaligned split position should be rejected.
+        assert!(area.split((page_size / 2).into()).is_none());
+
+        // Aligned split position inside the area should succeed.
+        let right = area
+            .split((2 * page_size).into())
+            .expect("split at aligned boundary must succeed");
+        assert_eq!(area.va_range(), va_range!(0..2 * page_size));
+        assert_eq!(
+            right.va_range(),
+            va_range!(2 * page_size..4 * page_size)
+        );
+    }
+
+    // Simulate 2 MiB and 1 GiB huge pages by using their actual sizes as
+    // `page_size` in the backend. We don't touch a page table here, so large
+    // addresses are fine in this unit test.
+    check_alignment(PAGE_SIZE_2M);
+    check_alignment(PAGE_SIZE_1G);
+}
+
+/// `MemorySet::unmap` with huge-page backends (2 MiB / 1 GiB) should only
+/// operate on page-size aligned ranges and produce correctly split areas for
+/// left/middle/right boundary cases.
+#[test]
+fn test_huge_page_unmap_boundaries() {
+    fn check_unmap_boundaries(page_size: usize) {
+        // Helper to create a new set with a single area [0, 4 * page_size).
+        fn new_set(page_size: usize) -> (HugeMemorySet, (), usize) {
+            let backend = HugeBackend { page_size };
+            let mut set = HugeMemorySet::new();
+            let mut pt = ();
+            let total_size = 4 * page_size;
+            assert_ok!(set.map(
+                MemoryArea::new(0.into(), total_size, 1, backend),
+                &mut pt,
+                false,
+            ));
+            assert_eq!(set.len(), 1);
+            (set, pt, total_size)
+        }
+
+        // 1) Unmap left boundary: [0, page_size) in [0, 4 * page_size)
+        {
+            let (mut set, mut pt, total) = new_set(page_size);
+            let unmap_start = 0usize;
+            let unmap_size = page_size;
+            assert_ok!(set.unmap(unmap_start.into(), unmap_size, &mut pt));
+
+            let areas: Vec<_> = set.iter().collect();
+            assert_eq!(areas.len(), 1);
+            assert_eq!(
+                areas[0].va_range(),
+                va_range!(page_size..total)
+            );
+        }
+
+        // 2) Unmap right boundary: [3 * page_size, 4 * page_size) in [0, 4 * page_size)
+        {
+            let (mut set, mut pt, total) = new_set(page_size);
+            let unmap_start = 3 * page_size;
+            let unmap_size = page_size;
+            assert_ok!(set.unmap(unmap_start.into(), unmap_size, &mut pt));
+
+            let areas: Vec<_> = set.iter().collect();
+            assert_eq!(areas.len(), 1);
+            assert_eq!(
+                areas[0].va_range(),
+                va_range!(0..total - page_size)
+            );
+        }
+
+        // 3) Unmap a middle page: [page_size, 2 * page_size) in [0, 4 * page_size)
+        //    Result should be two areas: [0, page_size) and [2 * page_size, 4 * page_size).
+        {
+            let (mut set, mut pt, total) = new_set(page_size);
+            let unmap_start = page_size;
+            let unmap_size = page_size;
+            assert_ok!(set.unmap(unmap_start.into(), unmap_size, &mut pt));
+
+            let mut areas: Vec<_> = set.iter().collect();
+            areas.sort_by_key(|a| Into::<usize>::into(a.start()));
+            assert_eq!(areas.len(), 2);
+            assert_eq!(areas[0].va_range(), va_range!(0..page_size));
+            assert_eq!(
+                areas[1].va_range(),
+                va_range!(2 * page_size..total)
+            );
+        }
+
+        // 4) Unmap the entire area: [0, 4 * page_size).
+        {
+            let (mut set, mut pt, total) = new_set(page_size);
+            assert_ok!(set.unmap(0.into(), total, &mut pt));
+            assert_eq!(set.len(), 0);
+        }
+    }
+
+    // Run the boundary tests for 2 MiB and 1 GiB huge pages.
+    check_unmap_boundaries(PAGE_SIZE_2M);
+    check_unmap_boundaries(PAGE_SIZE_1G);
+}
+
+/// Unmapping a sub-page (smaller than the backend page size) within a huge-page
+/// area must fail with `InvalidParam` and leave the mappings unchanged.
+#[test]
+fn test_huge_page_unmap_small_range_error() {
+    fn check(page_size: usize) {
+        fn new_set(page_size: usize) -> (HugeMemorySet, (), usize) {
+            let backend = HugeBackend { page_size };
+            let mut set = HugeMemorySet::new();
+            let mut pt = ();
+            let total = 4 * page_size;
+
+            assert_ok!(set.map(
+                MemoryArea::new(0.into(), total, 1, backend),
+                &mut pt,
+                false,
+            ));
+            assert_eq!(set.len(), 1);
+            (set, pt, total)
+        }
+
+        // 1) Left boundary: [0, page_size / 2)
+        {
+            let (mut set, mut pt, total) = new_set(page_size);
+            let res_left = set.unmap(0.into(), page_size / 2, &mut pt);
+            assert_eq!(res_left.err(), Some(MappingError::InvalidParam));
+            // Mapping should remain intact.
+            assert_eq!(set.len(), 1);
+            let area = set.iter().next().unwrap();
+            assert_eq!(area.va_range(), va_range!(0..total));
+        }
+
+        // 2) Middle: [page_size / 2, page_size)
+        {
+            let (mut set, mut pt, total) = new_set(page_size);
+            let res_mid = set.unmap(
+                (page_size / 2).into(),
+                page_size / 2,
+                &mut pt,
+            );
+            assert_eq!(res_mid.err(), Some(MappingError::InvalidParam));
+            assert_eq!(set.len(), 1);
+            let area = set.iter().next().unwrap();
+            assert_eq!(area.va_range(), va_range!(0..total));
+        }
+
+        // 3) Right boundary: [4 * page_size - page_size / 2, 4 * page_size)
+        {
+            let (mut set, mut pt, total) = new_set(page_size);
+            let res_right = set.unmap(
+                (total - page_size / 2).into(),
+                page_size / 2,
+                &mut pt,
+            );
+            assert_eq!(res_right.err(), Some(MappingError::InvalidParam));
+            assert_eq!(set.len(), 1);
+            let area = set.iter().next().unwrap();
+            assert_eq!(area.va_range(), va_range!(0..total));
+        }
+    }
+
+    check(PAGE_SIZE_2M);
+    check(PAGE_SIZE_1G);
+}
+
+/// Protecting a sub-page (smaller than the backend page size) within a
+/// huge-page area must also fail with `InvalidParam` and leave the mappings
+/// untouched.
+#[test]
+fn test_huge_page_protect_small_range_error() {
+    fn check(page_size: usize) {
+        let backend = HugeBackend { page_size };
+        let mut set = HugeMemorySet::new();
+        let mut pt = ();
+        let total = 4 * page_size;
+
+        assert_ok!(set.map(
+            MemoryArea::new(0.into(), total, 0x1, backend),
+            &mut pt,
+            false,
+        ));
+        assert_eq!(set.len(), 1);
+
+        let update_flags = |new_flags: MockFlags| {
+            move |old_flags: MockFlags| -> Option<MockFlags> {
+                if old_flags == new_flags {
+                    None
+                } else {
+                    Some(new_flags)
+                }
+            }
+        };
+
+        // 1) Left boundary: [0, page_size / 2)
+        assert_err!(
+            set.protect(
+                0.into(),
+                page_size / 2,
+                update_flags(0x2),
+                &mut pt
+            ),
+            InvalidParam
+        );
+
+        // 2) Middle: [page_size / 2, page_size)
+        assert_err!(
+            set.protect(
+                (page_size / 2).into(),
+                page_size / 2,
+                update_flags(0x3),
+                &mut pt
+            ),
+            InvalidParam
+        );
+
+        // 3) Right boundary: [4 * page_size - page_size / 2, 4 * page_size)
+        assert_err!(
+            set.protect(
+                (total - page_size / 2).into(),
+                page_size / 2,
+                update_flags(0x4),
+                &mut pt
+            ),
+            InvalidParam
+        );
+
+        // The original mapping range should remain unchanged.
+        assert_eq!(set.len(), 1);
+        let area = set.iter().next().unwrap();
+        assert_eq!(area.va_range(), va_range!(0..total));
+        assert_eq!(area.flags(), 0x1);
+    }
+
+    check(PAGE_SIZE_2M);
+    check(PAGE_SIZE_1G);
 }
