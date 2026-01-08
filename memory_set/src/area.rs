@@ -111,8 +111,17 @@ impl<B: MappingBackend> MemoryArea<B> {
     ) -> MappingResult {
         assert!(new_size > 0 && new_size < self.size());
 
+        let page_size = self.backend.page_size();
+        if page_size == 0 || !page_size.is_power_of_two() || !self.start().is_aligned(page_size) {
+            return Err(MappingError::InvalidParam);
+        }
+
         let old_size = self.size();
         let unmap_size = old_size - new_size;
+
+        if !memory_addr::is_aligned(unmap_size, page_size) {
+            return Err(MappingError::InvalidParam);
+        }
 
         if !self.backend.unmap(self.start(), unmap_size, page_table) {
             return Err(MappingError::BadState);
@@ -136,12 +145,21 @@ impl<B: MappingBackend> MemoryArea<B> {
         page_table: &mut B::PageTable,
     ) -> MappingResult {
         assert!(new_size > 0 && new_size < self.size());
+
+        let page_size = self.backend.page_size();
+        if page_size == 0 || !page_size.is_power_of_two() || !self.start().is_aligned(page_size) {
+            return Err(MappingError::InvalidParam);
+        }
         let old_size = self.size();
         let unmap_size = old_size - new_size;
 
         // Use wrapping_add to avoid overflow check.
         // Safety: `new_size` is less than the current size, so it will never overflow.
         let unmap_start = self.start().wrapping_add(new_size);
+
+        if !unmap_start.is_aligned(page_size) || !memory_addr::is_aligned(unmap_size, page_size) {
+            return Err(MappingError::InvalidParam);
+        }
 
         if !self.backend.unmap(unmap_start, unmap_size, page_table) {
             return Err(MappingError::BadState);
@@ -159,7 +177,12 @@ impl<B: MappingBackend> MemoryArea<B> {
     ///
     /// Returns `None` if the given position is not in the memory area, or one
     /// of the parts is empty after splitting.
-    pub(crate) fn split(&mut self, pos: B::Addr) -> Option<Self> {
+    pub(crate) fn split(&mut self, pos: B::Addr) -> MappingResult<Option<Self>> {
+        let page_size = self.backend.page_size();
+        if page_size == 0 || !page_size.is_power_of_two() || !pos.is_aligned(page_size) {
+            return Err(MappingError::InvalidParam);
+        }
+
         if self.start() < pos && pos < self.end() {
             let new_area = Self::new(
                 pos,
@@ -170,9 +193,9 @@ impl<B: MappingBackend> MemoryArea<B> {
                 self.backend.clone(),
             );
             self.va_range.end = pos;
-            Some(new_area)
+            Ok(Some(new_area))
         } else {
-            None
+            Ok(None)
         }
     }
 }

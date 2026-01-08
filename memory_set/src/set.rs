@@ -172,8 +172,12 @@ impl<B: MappingBackend> MemorySet<B> {
                     before.shrink_right(start.sub_addr(before_start), page_table)?;
                 } else {
                     // the unmapped area is in the middle `before`, need to split.
-                    let right_part = before.split(end).unwrap();
-                    before.shrink_right(start.sub_addr(before_start), page_table)?;
+                    let right_part = before.split(end)?.ok_or(MappingError::BadState)?;
+                    if let Err(err) = before.shrink_right(start.sub_addr(before_start), page_table)
+                    {
+                        before.set_end(before_end);
+                        return Err(err);
+                    }
                     assert_eq!(right_part.start().into(), Into::<usize>::into(end));
                     self.areas.insert(end, right_part);
                 }
@@ -186,7 +190,11 @@ impl<B: MappingBackend> MemorySet<B> {
             if after_start < end {
                 // the unmapped area is at the start of `after`.
                 let mut new_area = self.areas.remove(&after_start).unwrap();
-                new_area.shrink_left(after_end.sub_addr(end), page_table)?;
+                if let Err(err) = new_area.shrink_left(after_end.sub_addr(end), page_table) {
+                    // reinsert the temporarily removed area.
+                    self.areas.insert(after_start, new_area);
+                    return Err(err);
+                }
                 assert_eq!(new_area.start().into(), Into::<usize>::into(end));
                 self.areas.insert(end, new_area);
             }
@@ -242,7 +250,7 @@ impl<B: MappingBackend> MemorySet<B> {
                 } else if area_start < start && area_end > end {
                     //        [ prot ]
                     // [ left | area | right ]
-                    let right_part = area.split(end).unwrap();
+                    let right_part = area.split(end)?.ok_or(MappingError::BadState)?;
                     area.set_end(start);
 
                     let mut middle_part =
@@ -255,7 +263,7 @@ impl<B: MappingBackend> MemorySet<B> {
                 } else if area_end > end {
                     // [    prot ]
                     //   [  area | right ]
-                    let right_part = area.split(end).unwrap();
+                    let right_part = area.split(end)?.ok_or(MappingError::BadState)?;
                     area.protect_area(new_flags, page_table)?;
                     area.set_flags(new_flags);
 
@@ -263,7 +271,7 @@ impl<B: MappingBackend> MemorySet<B> {
                 } else {
                     //        [ prot    ]
                     // [ left |  area ]
-                    let mut right_part = area.split(start).unwrap();
+                    let mut right_part = area.split(start)?.ok_or(MappingError::BadState)?;
                     right_part.protect_area(new_flags, page_table)?;
                     right_part.set_flags(new_flags);
 

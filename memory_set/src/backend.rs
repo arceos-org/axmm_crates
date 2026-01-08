@@ -35,4 +35,13 @@ pub trait MappingBackend: Clone {
         new_flags: Self::Flags,
         page_table: &mut Self::PageTable,
     ) -> bool;
+
+    /// Returns the granularity (in bytes) this backend expects mapping operations
+    /// (split/shrink/unmap/protect) to operate on.
+    ///
+    /// Defaults to 4KiB. Backends that manage huge-page mappings should override
+    /// this to return their huge page size to avoid unintended huge-page splits.
+    fn page_size(&self) -> usize {
+        memory_addr::PAGE_SIZE_4K
+    }
 }
