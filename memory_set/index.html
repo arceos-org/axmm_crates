@@ -1,0 +1,82 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="memory_set"><title>memory_set - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="memory_set" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0-nightly (f6a07efc8 2026-01-16)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate memory_set</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../memory_set/index.html">memory_<wbr>set</a><span class="version">0.4.1</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#memory_set" title="memory_set">memory_set</a><ul><li><a href="#examples" title="Examples">Examples</a></li></ul></li></ul><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>memory_<wbr>set</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/memory_set/lib.rs.html#1-40">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="memory_set"><a class="doc-anchor" href="#memory_set">§</a>memory_set</h2>
+<p><a href="https://crates.io/crates/memory_set"><img src="https://img.shields.io/crates/v/memory_set" alt="Crates.io" /></a>
+<a href="https://docs.rs/memory_set"><img src="https://docs.rs/memory_set/badge.svg" alt="Docs.rs" /></a>
+<a href="https://github.com/arceos-org/axmm_crates/actions/workflows/ci.yml"><img src="https://github.com/arceos-org/axmm_crates/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" /></a></p>
+<p>Data structures and operations for managing memory mappings.</p>
+<p>It is useful to implement <a href="https://man7.org/linux/man-pages/man2/mmap.2.html"><code>mmap</code></a>, <a href="https://man7.org/linux/man-pages/man2/mmap.2.html"><code>munmap</code></a> and <a href="https://man7.org/linux/man-pages/man2/mprotect.2.html"><code>mprotect</code></a>.</p>
+<h3 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>memory_addr::{va, va_range, VirtAddr};
+<span class="kw">use </span>memory_set::{MappingBackend, MemoryArea, MemorySet};
+
+<span class="kw">const </span>MAX_ADDR: usize = <span class="number">0x10000</span>;
+
+<span class="doccomment">/// A mock memory flags.
+</span><span class="kw">type </span>MockFlags = u8;
+<span class="doccomment">/// A mock page table, which is a simple array that maps addresses to flags.
+</span><span class="kw">type </span>MockPageTable = [MockFlags; MAX_ADDR];
+
+<span class="doccomment">/// A mock mapping backend that manipulates the page table on `map` and `unmap`.
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">struct </span>MockBackend;
+
+<span class="kw">let </span><span class="kw-2">mut </span>pt = [<span class="number">0</span>; MAX_ADDR];
+<span class="kw">let </span><span class="kw-2">mut </span>memory_set = MemorySet::&lt;MockBackend&gt;::new();
+
+<span class="comment">// Map [0x1000..0x5000).
+</span>memory_set.map(
+    <span class="comment">/* area: */ </span>MemoryArea::new(<span class="macro">va!</span>(<span class="number">0x1000</span>), <span class="number">0x4000</span>, <span class="number">1</span>, MockBackend),
+    <span class="comment">/* page_table: */ </span><span class="kw-2">&amp;mut </span>pt,
+    <span class="comment">/* unmap_overlap */ </span><span class="bool-val">false</span>,
+).unwrap();
+<span class="comment">// Unmap [0x2000..0x4000), will split the area into two parts.
+</span>memory_set.unmap(<span class="macro">va!</span>(<span class="number">0x2000</span>), <span class="number">0x2000</span>, <span class="kw-2">&amp;mut </span>pt).unwrap();
+
+<span class="kw">let </span>areas = memory_set.iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<span class="macro">assert_eq!</span>(areas.len(), <span class="number">2</span>);
+<span class="macro">assert_eq!</span>(areas[<span class="number">0</span>].va_range(), <span class="macro">va_range!</span>(<span class="number">0x1000</span>..<span class="number">0x2000</span>));
+<span class="macro">assert_eq!</span>(areas[<span class="number">1</span>].va_range(), <span class="macro">va_range!</span>(<span class="number">0x4000</span>..<span class="number">0x5000</span>));
+
+<span class="comment">// Underlying operations to do when manipulating mappings.
+</span><span class="kw">impl </span>MappingBackend <span class="kw">for </span>MockBackend {
+    <span class="kw">type </span>Addr = VirtAddr;
+    <span class="kw">type </span>Flags = MockFlags;
+    <span class="kw">type </span>PageTable = MockPageTable;
+
+    <span class="kw">fn </span>map(<span class="kw-2">&amp;</span><span class="self">self</span>, start: VirtAddr, size: usize, flags: MockFlags, pt: <span class="kw-2">&amp;mut </span>MockPageTable) -&gt; bool {
+        <span class="kw">for </span>entry <span class="kw">in </span>pt.iter_mut().skip(start.as_usize()).take(size) {
+            <span class="kw">if </span><span class="kw-2">*</span><span class="macro">entry !</span>= <span class="number">0 </span>{
+                <span class="kw">return </span><span class="bool-val">false</span>;
+            }
+            <span class="kw-2">*</span>entry = flags;
+        }
+        <span class="bool-val">true
+    </span>}
+
+    <span class="kw">fn </span>unmap(<span class="kw-2">&amp;</span><span class="self">self</span>, start: VirtAddr, size: usize, pt: <span class="kw-2">&amp;mut </span>MockPageTable) -&gt; bool {
+        <span class="kw">for </span>entry <span class="kw">in </span>pt.iter_mut().skip(start.as_usize()).take(size) {
+            <span class="kw">if </span><span class="kw-2">*</span>entry == <span class="number">0 </span>{
+                <span class="kw">return </span><span class="bool-val">false</span>;
+            }
+            <span class="kw-2">*</span>entry = <span class="number">0</span>;
+        }
+        <span class="bool-val">true
+    </span>}
+
+    <span class="kw">fn </span>protect(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        start: VirtAddr,
+        size: usize,
+        new_flags: MockFlags,
+        pt: <span class="kw-2">&amp;mut </span>MockPageTable,
+    ) -&gt; bool {
+        <span class="kw">for </span>entry <span class="kw">in </span>pt.iter_mut().skip(start.as_usize()).take(size) {
+            <span class="kw">if </span><span class="kw-2">*</span>entry == <span class="number">0 </span>{
+                <span class="kw">return </span><span class="bool-val">false</span>;
+            }
+            <span class="kw-2">*</span>entry = new_flags;
+        }
+        <span class="bool-val">true
+    </span>}
+}</code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.MemoryArea.html" title="struct memory_set::MemoryArea">Memory<wbr>Area</a></dt><dd>A memory area represents a continuous range of virtual memory with the same
+flags.</dd><dt><a class="struct" href="struct.MemorySet.html" title="struct memory_set::MemorySet">Memory<wbr>Set</a></dt><dd>A container that maintains memory mappings (<a href="struct.MemoryArea.html" title="struct memory_set::MemoryArea"><code>MemoryArea</code></a>).</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.MappingError.html" title="enum memory_set::MappingError">Mapping<wbr>Error</a></dt><dd>Error type for memory mapping operations.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.MappingBackend.html" title="trait memory_set::MappingBackend">Mapping<wbr>Backend</a></dt><dd>Underlying operations to do when manipulating mappings within the specific
+<a href="struct.MemoryArea.html" title="struct memory_set::MemoryArea"><code>MemoryArea</code></a>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.MappingResult.html" title="type memory_set::MappingResult">Mapping<wbr>Result</a></dt><dd>A <a href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result"><code>Result</code></a> type with <a href="enum.MappingError.html" title="enum memory_set::MappingError"><code>MappingError</code></a> as the error type.</dd></dl></section></div></main></body></html>
