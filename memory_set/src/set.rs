@@ -13,6 +13,38 @@ pub struct MemorySet<B: MappingBackend> {
 }
 
 impl<B: MappingBackend> MemorySet<B> {
+    fn validate_ranges_exact_coverage(&self, ranges: &[AddrRange<B::Addr>]) -> MappingResult {
+        let mut previous_end = None;
+        for range in ranges {
+            if range.is_empty() || previous_end.is_some_and(|end| range.start < end) {
+                return Err(MappingError::InvalidParam);
+            }
+            previous_end = Some(range.end);
+
+            let mut cursor = range.start;
+            for (&start, area) in self.areas.range(range.start..range.end) {
+                if start != cursor || area.end() > range.end {
+                    return Err(MappingError::InvalidParam);
+                }
+                cursor = area.end();
+            }
+            if cursor != range.end {
+                return Err(MappingError::InvalidParam);
+            }
+        }
+        Ok(())
+    }
+
+    fn remove_ranges_exact_metadata(&mut self, ranges: &[AddrRange<B::Addr>]) {
+        let mut range_index = 0usize;
+        self.areas.retain(|_, area| {
+            while range_index < ranges.len() && ranges[range_index].end <= area.start() {
+                range_index += 1;
+            }
+            range_index >= ranges.len() || !area.va_range().contained_in(ranges[range_index])
+        });
+    }
+
     /// Creates a new memory set.
     pub const fn new() -> Self {
         Self {
@@ -180,6 +212,144 @@ impl<B: MappingBackend> MemorySet<B> {
             }
         }
 
+        Ok(())
+    }
+
+    /// Remove a sorted set of ranges whose boundaries coincide with complete
+    /// memory areas. Unlike repeated [`Self::unmap`] calls, this scans the area
+    /// tree once and therefore preserves the aggregation performed by callers
+    /// such as a balloon/reclaim backend.
+    ///
+    /// The operation rejects a range that cuts through an area. This exact-area
+    /// contract lets the method validate every boundary before mutating the
+    /// page table or the area set.
+    pub fn unmap_ranges_exact(
+        &mut self,
+        ranges: &[AddrRange<B::Addr>],
+        page_table: &mut B::PageTable,
+    ) -> MappingResult {
+        if ranges.is_empty() {
+            return Ok(());
+        }
+        self.validate_ranges_exact_coverage(ranges)?;
+
+        let mut batches = Vec::with_capacity(ranges.len());
+        for range in ranges {
+            let mut backend: Option<B> = None;
+            for (_, area) in self.areas.range(range.start..range.end) {
+                match backend.as_ref() {
+                    Some(first) if !first.can_merge_unmap(area.backend()) => {
+                        return Err(MappingError::InvalidParam);
+                    }
+                    None => backend = Some(area.backend().clone()),
+                    _ => {}
+                }
+            }
+            let backend = backend.ok_or(MappingError::InvalidParam)?;
+            batches.push((range.start, range.size(), backend));
+        }
+
+        // Preserve the caller's contiguous ranges all the way down to the
+        // page-table backend. HyperAlloc's 18-GiB shrink therefore performs
+        // one walk per aggregate_next() range, rather than one walk per 2-MiB
+        // MemoryArea. Metadata is removed only after every backend operation
+        // has succeeded.
+        for (start, size, backend) in batches {
+            if !backend.unmap(start, size, page_table) {
+                return Err(MappingError::BadState);
+            }
+        }
+        self.remove_ranges_exact_metadata(ranges);
+        Ok(())
+    }
+
+    /// Remove exact-area metadata after a caller-supplied page-table revoke.
+    /// The callback runs only after complete coverage validation and before
+    /// any area is removed. This is intended for a backend that already owns
+    /// stable leaf-entry addresses and can avoid repeated page-table walks.
+    pub fn unmap_ranges_exact_external(
+        &mut self,
+        ranges: &[AddrRange<B::Addr>],
+        revoke: impl FnOnce() -> bool,
+    ) -> MappingResult {
+        if ranges.is_empty() {
+            return Ok(());
+        }
+        self.validate_ranges_exact_coverage(ranges)?;
+        if !revoke() {
+            return Err(MappingError::BadState);
+        }
+        self.remove_ranges_exact_metadata(ranges);
+        Ok(())
+    }
+
+    /// Remove arbitrary sorted ranges after a caller-supplied page-table
+    /// revoke. Unlike [`Self::unmap_ranges_exact_external`], ranges may cut
+    /// through areas. The area tree is rebuilt in one pass from the surviving
+    /// complements, so a large linear mapping need not be represented by one
+    /// node per hardware leaf.
+    pub fn unmap_ranges_external(
+        &mut self,
+        ranges: &[AddrRange<B::Addr>],
+        revoke: impl FnOnce() -> bool,
+    ) -> MappingResult {
+        if ranges.is_empty() {
+            return Ok(());
+        }
+        let mut previous_end = None;
+        for range in ranges {
+            if range.is_empty() || previous_end.is_some_and(|end| range.start < end) {
+                return Err(MappingError::InvalidParam);
+            }
+            previous_end = Some(range.end);
+
+            let mut cursor = range.start;
+            while cursor < range.end {
+                let area = self.find(cursor).ok_or(MappingError::InvalidParam)?;
+                cursor = area.end().min(range.end);
+            }
+        }
+        if !revoke() {
+            return Err(MappingError::BadState);
+        }
+
+        let old_areas = core::mem::take(&mut self.areas);
+        let mut range_index = 0usize;
+        for (start, area) in old_areas {
+            while range_index < ranges.len() && ranges[range_index].end <= area.start() {
+                range_index += 1;
+            }
+            let mut index = range_index;
+            let mut cursor = area.start();
+            let mut changed = false;
+            while index < ranges.len() && ranges[index].start < area.end() {
+                let overlap_start = ranges[index].start.max(area.start());
+                let overlap_end = ranges[index].end.min(area.end());
+                if cursor < overlap_start {
+                    let survivor = MemoryArea::new(
+                        cursor,
+                        overlap_start.sub_addr(cursor),
+                        area.flags(),
+                        area.backend().clone(),
+                    );
+                    self.areas.insert(survivor.start(), survivor);
+                }
+                cursor = cursor.max(overlap_end);
+                changed = true;
+                index += 1;
+            }
+            if !changed {
+                self.areas.insert(start, area);
+            } else if cursor < area.end() {
+                let survivor = MemoryArea::new(
+                    cursor,
+                    area.end().sub_addr(cursor),
+                    area.flags(),
+                    area.backend().clone(),
+                );
+                self.areas.insert(survivor.start(), survivor);
+            }
+        }
         Ok(())
     }
 

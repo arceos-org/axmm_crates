@@ -27,6 +27,13 @@ pub trait MappingBackend: Clone {
     /// What to do when unmaping a memory region within the area.
     fn unmap(&self, start: Self::Addr, size: usize, page_table: &mut Self::PageTable) -> bool;
 
+    /// Returns whether two adjacent areas may be passed to one combined
+    /// [`Self::unmap`] call using this backend. Backends that do not opt in
+    /// retain the conservative one-area-at-a-time behavior.
+    fn can_merge_unmap(&self, _other: &Self) -> bool {
+        false
+    }
+
     /// What to do when changing access flags.
     fn protect(
         &self,
