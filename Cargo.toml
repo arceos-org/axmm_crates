@@ -13,4 +13,5 @@ homepage = "https://github.com/arceos-org/arceos"
 repository = "https://github.com/arceos-org/axmm_crates"
 # keywords = ["let member have their own keywords"]
 categories = ["os", "memory-management", "no-std"]
-rust-version = "1.70.0"
+# Conservative numeric guard for nightly Rust. See memory_addr/README.md.
+rust-version = "1.98"

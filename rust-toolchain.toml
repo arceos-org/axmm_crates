@@ -1,0 +1,9 @@
+[toolchain]
+channel = "nightly-2026-06-01"
+components = ["rustc", "cargo", "rustfmt", "rust-std", "rust-analyzer", "clippy"]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-none",
+    "riscv64gc-unknown-none-elf",
+    "aarch64-unknown-none-softfloat",
+]

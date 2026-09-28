@@ -3,7 +3,7 @@ use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use core::fmt;
 
-use memory_addr::{AddrRange, MemoryAddr};
+use memory_addr::{AddrRange, AddrRangeBounds, MemoryAddr};
 
 use crate::{MappingBackend, MappingError, MappingResult, MemoryArea};
 
@@ -70,6 +70,10 @@ impl<B: MappingBackend> MemorySet<B> {
     /// # Returns
     /// Returns the start address of the free area. Returns `None` if no such
     /// area is found.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `align` is zero.
     pub fn find_free_area(
         &self,
         hint: B::Addr,
@@ -77,7 +81,8 @@ impl<B: MappingBackend> MemorySet<B> {
         limit: AddrRange<B::Addr>,
         align: usize,
     ) -> Option<B::Addr> {
-        if size % align != 0 {
+        assert_ne!(align, 0, "alignment must be nonzero");
+        if !size.is_multiple_of(align) {
             // size must be a multiple of align.
             return None;
         }
@@ -197,7 +202,7 @@ impl<B: MappingBackend> MemorySet<B> {
 
     /// Remove all memory areas and the underlying mappings.
     pub fn clear(&mut self, page_table: &mut B::PageTable) -> MappingResult {
-        for (_, area) in self.areas.iter() {
+        for area in self.areas.values() {
             area.unmap_area(page_table)?;
         }
         self.areas.clear();
