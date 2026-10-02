@@ -440,21 +440,21 @@ macro_rules! def_usize_addr {
             }
         }
 
-        impl $($constness)? ::core::convert::From<::core::primitive::usize> for $name {
+        $($constness)? impl ::core::convert::From<::core::primitive::usize> for $name {
             #[inline]
             fn from(addr: ::core::primitive::usize) -> Self {
                 Self(addr)
             }
         }
 
-        impl $($constness)? ::core::convert::From<$name> for ::core::primitive::usize {
+        $($constness)? impl ::core::convert::From<$name> for ::core::primitive::usize {
             #[inline]
             fn from(addr: $name) -> ::core::primitive::usize {
                 addr.0
             }
         }
 
-        impl $($constness)? ::core::ops::Add<::core::primitive::usize> for $name {
+        $($constness)? impl ::core::ops::Add<::core::primitive::usize> for $name {
             type Output = Self;
             #[inline]
             fn add(self, rhs: ::core::primitive::usize) -> Self {
@@ -462,14 +462,14 @@ macro_rules! def_usize_addr {
             }
         }
 
-        impl $($constness)? ::core::ops::AddAssign<::core::primitive::usize> for $name {
+        $($constness)? impl ::core::ops::AddAssign<::core::primitive::usize> for $name {
             #[inline]
             fn add_assign(&mut self, rhs: ::core::primitive::usize) {
                 self.0 += rhs;
             }
         }
 
-        impl $($constness)? ::core::ops::Sub<::core::primitive::usize> for $name {
+        $($constness)? impl ::core::ops::Sub<::core::primitive::usize> for $name {
             type Output = Self;
             #[inline]
             fn sub(self, rhs: ::core::primitive::usize) -> Self {
@@ -477,14 +477,14 @@ macro_rules! def_usize_addr {
             }
         }
 
-        impl $($constness)? ::core::ops::SubAssign<::core::primitive::usize> for $name {
+        $($constness)? impl ::core::ops::SubAssign<::core::primitive::usize> for $name {
             #[inline]
             fn sub_assign(&mut self, rhs: ::core::primitive::usize) {
                 self.0 -= rhs;
             }
         }
 
-        impl $($constness)? ::core::ops::Sub<$name> for $name {
+        $($constness)? impl ::core::ops::Sub<$name> for $name {
             type Output = ::core::primitive::usize;
             #[inline]
             fn sub(self, rhs: $name) -> ::core::primitive::usize {
