@@ -13,6 +13,7 @@
 #![feature(const_option_ops)]
 #![feature(const_range)]
 #![feature(const_range_bounds)]
+#![feature(const_try)]
 #![feature(derive_const)]
 
 mod addr;
@@ -76,13 +77,36 @@ pub const fn align_down(addr: usize, align: usize) -> usize {
 /// Returns the smallest `x` with alignment `align` so that `x >= addr`,
 /// provided the computation does not overflow.
 ///
+/// When the computation overflows, the result wraps around.
+///
 /// The alignment must be a nonzero power of two. This requirement is not
 /// checked.
 #[inline]
 pub const fn align_up(addr: usize, align: usize) -> usize {
-    // TODO: Avoid intermediate overflow for representable results and define final
-    // overflow behavior.
-    (addr + align - 1) & !(align - 1)
+    (addr.wrapping_add(align - 1)) & !(align - 1)
+}
+
+/// Aligns an address upwards in a checked manner.
+///
+/// Returns the smallest Some(`x`) with alignment `align` so that `x >= addr`,
+/// provided the computation does not overflow.
+///
+/// When the computation overflows, the result is `None`.
+///
+/// The alignment must be a nonzero power of two. This requirement is not
+/// checked.
+///
+/// # Examples
+///
+/// ```
+/// use memory_addr::align_up_checked;
+///
+/// assert_eq!(align_up_checked(0x1234, 0x1000), Some(0x2000));
+/// assert_eq!(align_up_checked(usize::MAX - 1, 4), None);
+/// ```
+#[inline]
+pub const fn align_up_checked(addr: usize, align: usize) -> Option<usize> {
+    Some((addr.checked_add(align - 1)?) & !(align - 1))
 }
 
 /// Returns the offset of the address within the alignment.

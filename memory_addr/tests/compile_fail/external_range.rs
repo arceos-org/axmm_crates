@@ -28,6 +28,14 @@ impl AddrRangeBounds<usize> for ExternalRange {
         Some(0)
     }
 
+    fn align_inwards(&self, _: usize) -> Option<Self> {
+        Some(*self)
+    }
+
+    fn align_outwards(&self, _: usize) -> Option<Self> {
+        Some(*self)
+    }
+
     fn into_general(self) -> GeneralAddrRange<usize> {
         GeneralAddrRange::Range(AddrRange::new(0, 0))
     }

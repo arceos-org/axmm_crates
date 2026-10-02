@@ -103,6 +103,30 @@ const impl<A: [const] MemoryAddr> AddrRangeBounds<A> for GeneralAddrRange<A> {
     }
 
     #[inline]
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::Range(range) => range.is_empty(),
+            Self::RangeFrom(range) => range.is_empty(),
+        }
+    }
+
+    #[inline]
+    fn align_inwards(&self, alignment: usize) -> Option<Self> {
+        match self {
+            Self::Range(range) => range.align_inwards(alignment).map(Self::Range),
+            Self::RangeFrom(range) => range.align_inwards(alignment).map(Self::RangeFrom),
+        }
+    }
+
+    #[inline]
+    fn align_outwards(&self, alignment: usize) -> Option<Self> {
+        match self {
+            Self::Range(range) => range.align_outwards(alignment).map(Self::Range),
+            Self::RangeFrom(range) => range.align_outwards(alignment).map(Self::RangeFrom),
+        }
+    }
+
+    #[inline]
     fn into_general(self) -> GeneralAddrRange<A> {
         self
     }

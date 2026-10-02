@@ -76,6 +76,27 @@ pub const trait MemoryAddr:
         Self::from(crate::align_up(self.into(), align.into()))
     }
 
+    /// Aligns the address upwards to the given alignment in a checked manner.
+    ///
+    /// The alignment must convert to a nonzero power of two. Delegates to [`crate::align_up_checked`],
+    /// returning `None` if the resulting address would overflow.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use memory_addr::{va, MemoryAddr};
+    ///
+    /// assert_eq!(va!(0x1234).align_up_checked(0x1000usize), Some(va!(0x2000)));
+    /// assert_eq!(va!(usize::MAX - 1).align_up_checked(4usize), None);
+    /// ```
+    #[inline]
+    fn align_up_checked<U>(self, align: U) -> Option<Self>
+    where
+        U: [const] Into<usize>,
+    {
+        crate::align_up_checked(self.into(), align.into()).map(Self::from)
+    }
+
     /// Returns the offset of the address within the given alignment.
     ///
     /// The alignment must convert to a nonzero power of two. The result is measured in bytes.

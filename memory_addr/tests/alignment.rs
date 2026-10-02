@@ -14,8 +14,8 @@
 )]
 
 use memory_addr::{
-    align_down, align_down_4k, align_offset, align_offset_4k, align_up, align_up_4k, is_aligned,
-    is_aligned_4k, va, MemoryAddr, PhysAddr,
+    align_down, align_down_4k, align_offset, align_offset_4k, align_up, align_up_4k,
+    align_up_checked, is_aligned, is_aligned_4k, va, MemoryAddr, PhysAddr,
 };
 
 mod common;
@@ -116,4 +116,30 @@ fn test_align() {
     assert_eq!(align_offset_4k(0x12345678), 0x678);
     assert!(is_aligned_4k(0x12345000));
     assert!(!is_aligned_4k(0x12345678));
+}
+
+/// Checks the documented wrapping behavior when upward alignment overflows.
+#[test]
+fn align_up_wraps_on_overflow() {
+    let address = usize::MAX - 1;
+
+    assert_eq!(align_up(address, 4), 0);
+    assert_eq!(align_up_checked(address, 4), None);
+}
+
+/// Checked alignment succeeds when the rounded address is representable.
+#[test]
+fn checked_alignment_preserves_address_types() {
+    const ALIGNED: Option<usize> = align_up_checked(0x2345, 0x1000);
+    assert_eq!(ALIGNED, Some(0x3000));
+
+    let address = ExampleAddr::from_usize(0x2345);
+    assert_eq!(
+        address.align_up_checked(0x1000usize),
+        Some(ExampleAddr::from_usize(0x3000))
+    );
+    assert_eq!(
+        ExampleAddr::from_usize(usize::MAX - 1).align_up_checked(4usize),
+        None
+    );
 }

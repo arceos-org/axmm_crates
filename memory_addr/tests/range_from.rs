@@ -117,3 +117,31 @@ fn open_ended_range_size() {
     assert_eq!(size_of::<VirtAddrRangeFrom>(), size_of::<usize>());
     assert_eq!(size_of::<PhysAddrRangeFrom>(), size_of::<usize>());
 }
+
+/// Rounds the inclusive start of an open-ended range in both directions.
+#[test]
+fn open_ended_alignment_rounds_start() {
+    let range = VirtAddrRangeFrom::new(va!(0x2345));
+
+    assert_eq!(
+        range.align_inwards(0x1000),
+        Some(VirtAddrRangeFrom::new(va!(0x3000)))
+    );
+    assert_eq!(
+        range.align_outwards(0x1000),
+        Some(VirtAddrRangeFrom::new(va!(0x2000)))
+    );
+}
+
+/// Open-ended alignment rejects invalid values and upward overflow.
+#[test]
+fn open_ended_alignment_rejects_invalid_or_overflowing_inputs() {
+    let range = VirtAddrRangeFrom::new(va!(0x2345));
+
+    assert_eq!(range.align_inwards(0), None);
+    assert_eq!(range.align_outwards(3), None);
+    assert_eq!(
+        VirtAddrRangeFrom::new(va!(usize::MAX - 1)).align_inwards(4),
+        None
+    );
+}

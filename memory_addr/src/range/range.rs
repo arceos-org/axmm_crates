@@ -244,6 +244,36 @@ const impl<A: [const] MemoryAddr> AddrRangeBounds<A> for AddrRange<A> {
     }
 
     #[inline]
+    fn align_inwards(&self, alignment: usize) -> Option<Self> {
+        if !alignment.is_power_of_two() {
+            return None;
+        }
+
+        let start = self.start.align_up_checked(alignment)?;
+        let end = self.end.align_down(alignment);
+        if start <= end {
+            Some(Self { start, end })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    fn align_outwards(&self, alignment: usize) -> Option<Self> {
+        if !alignment.is_power_of_two() {
+            return None;
+        }
+
+        let start = self.start.align_down(alignment);
+        let end = self.end.align_up_checked(alignment)?;
+        if start <= end {
+            Some(Self { start, end })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
     fn into_general(self) -> GeneralAddrRange<A> {
         self.into()
     }

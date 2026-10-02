@@ -78,6 +78,26 @@ const impl<A: [const] MemoryAddr> AddrRangeBounds<A> for AddrRangeFrom<A> {
     }
 
     #[inline]
+    fn align_inwards(&self, alignment: usize) -> Option<Self> {
+        if !alignment.is_power_of_two() {
+            return None;
+        }
+
+        let start = self.start.align_up_checked(alignment)?;
+        Some(Self { start })
+    }
+
+    #[inline]
+    fn align_outwards(&self, alignment: usize) -> Option<Self> {
+        if !alignment.is_power_of_two() {
+            return None;
+        }
+
+        let start = self.start.align_down(alignment);
+        Some(Self { start })
+    }
+
+    #[inline]
     fn into_general(self) -> GeneralAddrRange<A> {
         self.into()
     }

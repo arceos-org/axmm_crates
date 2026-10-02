@@ -52,3 +52,27 @@ fn formatting() {
     assert_eq!(format!("{tail:x}"), "ab..");
     assert_eq!(format!("{tail:X}"), "AB..");
 }
+
+/// Delegates alignment operations to the represented range variant.
+#[test]
+fn general_range_alignment_delegates() {
+    let bounded = GeneralAddrRange::from(AddrRange::new(0x1234usize, 0x6789));
+    let open = GeneralAddrRange::from(AddrRangeFrom::new(0x2345usize));
+
+    assert_eq!(
+        bounded.align_inwards(0x1000),
+        Some(GeneralAddrRange::from(AddrRange::new(0x2000, 0x6000)))
+    );
+    assert_eq!(
+        bounded.align_outwards(0x1000),
+        Some(GeneralAddrRange::from(AddrRange::new(0x1000, 0x7000)))
+    );
+    assert_eq!(
+        open.align_inwards(0x1000),
+        Some(GeneralAddrRange::from(AddrRangeFrom::new(0x3000)))
+    );
+    assert_eq!(
+        open.align_outwards(0x1000),
+        Some(GeneralAddrRange::from(AddrRangeFrom::new(0x2000)))
+    );
+}

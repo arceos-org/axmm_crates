@@ -397,6 +397,54 @@ pub const trait AddrRangeBounds<A: [const] MemoryAddr>: Copy + sealed::Range {
                 .is_none_or(const |end| other.start() < end)
     }
 
+    /// Aligns the range inwards to the specified alignment.
+    ///
+    /// Returns `None` if the alignment is not a non-zero power of two or if the
+    /// resulting range would be invalid or unrepresentable by the range type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use memory_addr::{va, va_range, AddrRangeBounds, VirtAddrRangeFrom};
+    ///
+    /// let range = va_range!(0x1234..0x6789);
+    /// assert_eq!(
+    ///     range.align_inwards(0x1000),
+    ///     Some(va_range!(0x2000..0x6000)),
+    /// );
+    ///
+    /// let tail = VirtAddrRangeFrom::new(va!(0x2345));
+    /// assert_eq!(
+    ///     tail.align_inwards(0x1000),
+    ///     Some(VirtAddrRangeFrom::new(va!(0x3000))),
+    /// );
+    /// ```
+    fn align_inwards(&self, alignment: usize) -> Option<Self>;
+
+    /// Aligns the range outwards to the specified alignment.
+    ///
+    /// Returns `None` if the alignment is not a non-zero power of two or if the
+    /// resulting range would be invalid or unrepresentable by the range type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use memory_addr::{va, va_range, AddrRangeBounds, VirtAddrRangeFrom};
+    ///
+    /// let range = va_range!(0x1234..0x6789);
+    /// assert_eq!(
+    ///     range.align_outwards(0x1000),
+    ///     Some(va_range!(0x1000..0x7000)),
+    /// );
+    ///
+    /// let tail = VirtAddrRangeFrom::new(va!(0x2345));
+    /// assert_eq!(
+    ///     tail.align_outwards(0x1000),
+    ///     Some(VirtAddrRangeFrom::new(va!(0x2000))),
+    /// );
+    /// ```
+    fn align_outwards(&self, alignment: usize) -> Option<Self>;
+
     /// The page iterator for this range type.
     ///
     /// Its items use the same semantic address type as the range endpoints.

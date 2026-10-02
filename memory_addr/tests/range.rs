@@ -173,6 +173,46 @@ fn range_size_overflow_panics() {
     let _ = VirtAddrRange::from_start_size(va!(usize::MAX), 1);
 }
 
+/// Rounds bounded ranges to page boundaries in both directions.
+#[test]
+fn range_alignment_rounds_endpoints() {
+    let range = VirtAddrRange::new(va!(0x1234), va!(0x6789));
+
+    assert_eq!(
+        range.align_inwards(0x1000),
+        Some(VirtAddrRange::new(va!(0x2000), va!(0x6000)))
+    );
+    assert_eq!(
+        range.align_outwards(0x1000),
+        Some(VirtAddrRange::new(va!(0x1000), va!(0x7000)))
+    );
+}
+
+/// Rejects invalid alignment values and ranges with no aligned interior.
+#[test]
+fn range_alignment_rejects_invalid_or_empty_results() {
+    let range = VirtAddrRange::new(va!(0x1001), va!(0x1fff));
+    let empty = VirtAddrRange::new(va!(0x2000), va!(0x2001));
+
+    assert_eq!(range.align_inwards(0), None);
+    assert_eq!(range.align_inwards(3), None);
+    assert_eq!(range.align_inwards(0x1000), None);
+    assert_eq!(
+        empty.align_inwards(0x1000),
+        Some(VirtAddrRange::new(va!(0x2000), va!(0x2000)))
+    );
+}
+
+/// Checked endpoint rounding reports overflow instead of producing a wrapped
+/// range.
+#[test]
+fn range_alignment_reports_endpoint_overflow() {
+    let range = VirtAddrRange::new(va!(usize::MAX - 1), va!(usize::MAX));
+
+    assert_eq!(range.align_inwards(4), None);
+    assert_eq!(range.align_outwards(4), None);
+}
+
 /// Checks formatting of bounded virtual address ranges.
 ///
 /// Both endpoints preserve their semantic address prefixes.
