@@ -95,6 +95,129 @@ fn const_mixed_relations() {
     }
 }
 
+/// Checks subtraction from a bounded range, including empty and open-ended
+/// operands.
+#[test]
+fn const_bounded_subtract() {
+    const RANGE: AddrRange<usize> = AddrRange::new(10, 30);
+    const SPLIT: (Option<AddrRange<usize>>, Option<AddrRange<usize>>) =
+        RANGE.subtract(AddrRange::new(15, 20));
+    const LEFT: (Option<AddrRange<usize>>, Option<AddrRange<usize>>) =
+        RANGE.subtract(AddrRange::new(0, 15));
+    const RIGHT: (Option<AddrRange<usize>>, Option<AddrRange<usize>>) =
+        RANGE.subtract(AddrRange::new(25, 40));
+    const COVERED: (Option<AddrRange<usize>>, Option<AddrRange<usize>>) =
+        RANGE.subtract(AddrRange::new(0, 40));
+    const BEFORE: (Option<AddrRange<usize>>, Option<AddrRange<usize>>) =
+        RANGE.subtract(AddrRange::new(0, 10));
+    const AFTER: (Option<AddrRange<usize>>, Option<AddrRange<usize>>) =
+        RANGE.subtract(AddrRange::new(30, 40));
+    const TAIL: (Option<AddrRange<usize>>, Option<AddrRange<usize>>) =
+        RANGE.subtract(AddrRangeFrom::new(20));
+    const EMPTY_BEFORE: (Option<AddrRange<usize>>, Option<AddrRange<usize>>) =
+        RANGE.subtract(AddrRange::new(0, 0));
+    const EMPTY_INSIDE: (Option<AddrRange<usize>>, Option<AddrRange<usize>>) =
+        RANGE.subtract(AddrRange::new(17, 17));
+    const EMPTY_AFTER: (Option<AddrRange<usize>>, Option<AddrRange<usize>>) =
+        RANGE.subtract(AddrRange::new(30, 30));
+
+    assert_eq!(
+        SPLIT,
+        (Some(AddrRange::new(10, 15)), Some(AddrRange::new(20, 30)))
+    );
+    assert_eq!(LEFT, (None, Some(AddrRange::new(15, 30))));
+    assert_eq!(RIGHT, (Some(AddrRange::new(10, 25)), None));
+    assert_eq!(COVERED, (None, None));
+    assert_eq!(BEFORE, (None, Some(RANGE)));
+    assert_eq!(AFTER, (Some(RANGE), None));
+    assert_eq!(TAIL, (Some(AddrRange::new(10, 20)), None));
+    assert_eq!(EMPTY_BEFORE, (None, Some(RANGE)));
+    assert_eq!(EMPTY_INSIDE, (None, Some(RANGE)));
+    assert_eq!(EMPTY_AFTER, (None, Some(RANGE)));
+}
+
+/// Checks subtraction from an open-ended range through the maximum address.
+#[test]
+fn const_open_ended_subtract() {
+    const RANGE: AddrRangeFrom<usize> = AddrRangeFrom::new(10);
+    const SPLIT: (Option<AddrRange<usize>>, Option<AddrRangeFrom<usize>>) =
+        RANGE.subtract(AddrRange::new(15, 20));
+    const LEFT: (Option<AddrRange<usize>>, Option<AddrRangeFrom<usize>>) =
+        RANGE.subtract(AddrRange::new(0, 15));
+    const RIGHT: (Option<AddrRange<usize>>, Option<AddrRangeFrom<usize>>) =
+        RANGE.subtract(AddrRange::new(20, 30));
+    const COVERED: (Option<AddrRange<usize>>, Option<AddrRangeFrom<usize>>) =
+        RANGE.subtract(AddrRangeFrom::new(0));
+    const TAIL: (Option<AddrRange<usize>>, Option<AddrRangeFrom<usize>>) =
+        RANGE.subtract(AddrRangeFrom::new(20));
+    const EMPTY_BEFORE: (Option<AddrRange<usize>>, Option<AddrRangeFrom<usize>>) =
+        RANGE.subtract(AddrRange::new(0, 0));
+    const EMPTY_INSIDE: (Option<AddrRange<usize>>, Option<AddrRangeFrom<usize>>) =
+        RANGE.subtract(AddrRange::new(17, 17));
+    const EMPTY_AT_MAX: (Option<AddrRange<usize>>, Option<AddrRangeFrom<usize>>) =
+        RANGE.subtract(AddrRange::new(usize::MAX, usize::MAX));
+    const FINAL: (Option<AddrRange<usize>>, Option<AddrRangeFrom<usize>>) =
+        RANGE.subtract(AddrRange::new(usize::MAX - 1, usize::MAX));
+
+    assert_eq!(
+        SPLIT,
+        (Some(AddrRange::new(10, 15)), Some(AddrRangeFrom::new(20))),
+    );
+    assert_eq!(LEFT, (None, Some(AddrRangeFrom::new(15))));
+    assert_eq!(
+        RIGHT,
+        (Some(AddrRange::new(10, 20)), Some(AddrRangeFrom::new(30)))
+    );
+    assert_eq!(COVERED, (None, None));
+    assert_eq!(TAIL, (Some(AddrRange::new(10, 20)), None));
+    assert_eq!(EMPTY_BEFORE, (None, Some(RANGE)));
+    assert_eq!(EMPTY_INSIDE, (None, Some(RANGE)));
+    assert_eq!(EMPTY_AT_MAX, (None, Some(RANGE)));
+    assert_eq!(
+        FINAL,
+        (
+            Some(AddrRange::new(10, usize::MAX - 1)),
+            Some(AddrRangeFrom::new(usize::MAX)),
+        ),
+    );
+}
+
+/// Checks that the general range delegates subtraction without changing its
+/// endpoint representation.
+#[test]
+fn const_general_subtract_preserves_variant() {
+    const BOUNDED: GeneralAddrRange<usize> = GeneralAddrRange::from(AddrRange::new(10, 30));
+    const TAIL: GeneralAddrRange<usize> = GeneralAddrRange::from(AddrRangeFrom::new(10));
+    const BOUNDED_EMPTY: (Option<AddrRange<usize>>, Option<GeneralAddrRange<usize>>) =
+        BOUNDED.subtract(AddrRange::new(17, 17));
+    const TAIL_EMPTY: (Option<AddrRange<usize>>, Option<GeneralAddrRange<usize>>) =
+        TAIL.subtract(AddrRange::new(17, 17));
+    const BOUNDED_SPLIT: (Option<AddrRange<usize>>, Option<GeneralAddrRange<usize>>) =
+        BOUNDED.subtract(AddrRange::new(15, 20));
+    const TAIL_SPLIT: (Option<AddrRange<usize>>, Option<GeneralAddrRange<usize>>) =
+        TAIL.subtract(AddrRange::new(15, 20));
+
+    assert_eq!(
+        BOUNDED_EMPTY,
+        (None, Some(GeneralAddrRange::Range(AddrRange::new(10, 30))),),
+    );
+    assert_eq!(TAIL_EMPTY, (None, Some(TAIL)));
+    assert_eq!(
+        BOUNDED_SPLIT,
+        (
+            Some(AddrRange::new(10, 15)),
+            Some(GeneralAddrRange::Range(AddrRange::new(20, 30))),
+        ),
+    );
+    assert_eq!(
+        TAIL_SPLIT,
+        (
+            Some(AddrRange::new(10, 15)),
+            Some(GeneralAddrRange::RangeFrom(AddrRangeFrom::new(20))),
+        ),
+    );
+}
+
 /// Checks empty-range semantics through the enum.
 ///
 /// Empty ranges are subsets of all ranges and overlap none of them.

@@ -36,6 +36,13 @@ impl AddrRangeBounds<usize> for ExternalRange {
         Some(*self)
     }
 
+    fn subtract<R: AddrRangeBounds<usize>>(
+        &self,
+        _: R,
+    ) -> (Option<AddrRange<usize>>, Option<Self>) {
+        (None, None)
+    }
+
     fn into_general(self) -> GeneralAddrRange<usize> {
         GeneralAddrRange::Range(AddrRange::new(0, 0))
     }

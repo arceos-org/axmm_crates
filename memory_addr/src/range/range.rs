@@ -244,6 +244,61 @@ const impl<A: [const] MemoryAddr> AddrRangeBounds<A> for AddrRange<A> {
     }
 
     #[inline]
+    fn subtract<R: [const] AddrRangeBounds<A>>(
+        &self,
+        other: R,
+    ) -> (Option<AddrRange<A>>, Option<Self>) {
+        if other.is_empty() {
+            return (None, Some(*self));
+        }
+
+        let other_start = other.start();
+        let other_end = other.checked_end();
+
+        if other_start <= self.start {
+            // The other range starts before this range.
+            match other_end {
+                // The other range ends before or inside this range, leaving the portion after it as
+                // a bounded range.
+                Some(other_end) if other_end < self.end => (
+                    None,
+                    Some(Self {
+                        start: self.start.max(other_end),
+                        end: self.end,
+                    }),
+                ),
+                // The other range extends to the end of the address space, leaving nothing.
+                _ => (None, None),
+            }
+        } else if other_start < self.end {
+            // The other range starts inside this range, leaving the portion before it as a
+            // bounded range.
+            let before = Self {
+                start: self.start,
+                end: other_start,
+            };
+
+            match other_end {
+                // The other range ends before the end of this range, leaving the portion after it
+                // as a bounded range.
+                Some(other_end) if other_end < self.end => (
+                    Some(before),
+                    Some(Self {
+                        start: other_end,
+                        end: self.end,
+                    }),
+                ),
+                // The other range extends to or beyond the end of this range, leaving nothing after
+                // it.
+                _ => (Some(before), None),
+            }
+        } else {
+            // The other range starts after this range, leaving the original range intact.
+            (Some(*self), None)
+        }
+    }
+
+    #[inline]
     fn align_inwards(&self, alignment: usize) -> Option<Self> {
         if !alignment.is_power_of_two() {
             return None;

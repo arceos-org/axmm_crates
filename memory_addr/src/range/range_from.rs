@@ -78,6 +78,59 @@ const impl<A: [const] MemoryAddr> AddrRangeBounds<A> for AddrRangeFrom<A> {
     }
 
     #[inline]
+    fn is_valid(&self) -> bool {
+        true
+    }
+
+    #[inline]
+    fn into_general(self) -> GeneralAddrRange<A> {
+        self.into()
+    }
+
+    #[inline]
+    fn subtract<R: [const] AddrRangeBounds<A>>(
+        &self,
+        other: R,
+    ) -> (Option<super::AddrRange<A>>, Option<Self>) {
+        if other.is_empty() {
+            return (None, Some(*self));
+        }
+
+        let other_start = other.start();
+        let other_end = other.checked_end();
+
+        if other_start <= self.start {
+            // The other range starts before this range.
+            match other_end {
+                // The other range ends inside or before this range, both leaving a `RangeFrom`.
+                Some(other_end) => (
+                    None,
+                    Some(Self {
+                        start: self.start.max(other_end),
+                    }),
+                ),
+                // The other range extends to the end of the address space, leaving nothing.
+                None => (None, None),
+            }
+        } else {
+            // The other range starts after this range, leaving the portion before it as a
+            // bounded range.
+            let before = super::AddrRange {
+                start: self.start,
+                end: other_start,
+            };
+
+            match other_end {
+                // The other range is contained within this range, leaving the portion after it as a
+                // `RangeFrom` starting at `other_end`.
+                Some(other_end) => (Some(before), Some(Self { start: other_end })),
+                // The other range extends to the end of the address space, leaving nothing.
+                None => (Some(before), None),
+            }
+        }
+    }
+
+    #[inline]
     fn align_inwards(&self, alignment: usize) -> Option<Self> {
         if !alignment.is_power_of_two() {
             return None;
@@ -95,11 +148,6 @@ const impl<A: [const] MemoryAddr> AddrRangeBounds<A> for AddrRangeFrom<A> {
 
         let start = self.start.align_down(alignment);
         Some(Self { start })
-    }
-
-    #[inline]
-    fn into_general(self) -> GeneralAddrRange<A> {
-        self.into()
     }
 }
 

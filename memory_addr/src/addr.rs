@@ -5,6 +5,7 @@
 
 use core::{
     cmp::Ord,
+    marker::Destruct,
     ops::{Add, Sub},
 };
 
@@ -44,6 +45,8 @@ pub const trait MemoryAddr:
     + [const] Sub<usize, Output = Self>
     // The address type should be comparable.
     + [const] Ord
+    // The address type should be const-destructible when used in a const context.
+    + [const] Destruct
 {
     // No required methods for now. Following are some utility methods.
 
@@ -311,6 +314,7 @@ const impl<T> MemoryAddr for T where
         + [const] Add<usize, Output = Self>
         + [const] Sub<usize, Output = Self>
         + [const] Ord
+        + [const] Destruct
 {
 }
 

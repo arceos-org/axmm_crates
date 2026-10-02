@@ -111,6 +111,28 @@ const impl<A: [const] MemoryAddr> AddrRangeBounds<A> for GeneralAddrRange<A> {
     }
 
     #[inline]
+    fn into_general(self) -> GeneralAddrRange<A> {
+        self
+    }
+
+    #[inline]
+    fn subtract<R: [const] AddrRangeBounds<A>>(
+        &self,
+        other: R,
+    ) -> (Option<AddrRange<A>>, Option<Self>) {
+        match self {
+            Self::Range(range) => {
+                let (before, after) = range.subtract(other);
+                (before, after.map(Self::Range))
+            }
+            Self::RangeFrom(range) => {
+                let (before, after) = range.subtract(other);
+                (before, after.map(Self::RangeFrom))
+            }
+        }
+    }
+
+    #[inline]
     fn align_inwards(&self, alignment: usize) -> Option<Self> {
         match self {
             Self::Range(range) => range.align_inwards(alignment).map(Self::Range),
@@ -124,11 +146,6 @@ const impl<A: [const] MemoryAddr> AddrRangeBounds<A> for GeneralAddrRange<A> {
             Self::Range(range) => range.align_outwards(alignment).map(Self::Range),
             Self::RangeFrom(range) => range.align_outwards(alignment).map(Self::RangeFrom),
         }
-    }
-
-    #[inline]
-    fn into_general(self) -> GeneralAddrRange<A> {
-        self
     }
 }
 

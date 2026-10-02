@@ -5,9 +5,9 @@ error[E0277]: the trait bound `ExternalIterator: memory_addr::range::sealed::Ran
    |                     ^^^^^^^^^^^^^^^^ unsatisfied trait bound
    |
 help: the trait `memory_addr::range::sealed::RangeIterator` is not implemented for `ExternalIterator`
-  --> tests/compile_fail/external_range.rs:47:1
+  --> tests/compile_fail/external_range.rs:54:1
    |
-47 | struct ExternalIterator;
+54 | struct ExternalIterator;
    | ^^^^^^^^^^^^^^^^^^^^^^^
 help: the following other types implement trait `memory_addr::range::sealed::RangeIterator`
   --> src/range/sealed.rs
@@ -61,9 +61,9 @@ note: required by a bound in `AddrRangeBounds`
              memory_addr::GeneralAddrRange<A>
 
 error[E0277]: the trait bound `ExternalRange: memory_addr::range::sealed::Range` is not satisfied
-  --> tests/compile_fail/external_range.rs:64:22
+  --> tests/compile_fail/external_range.rs:71:22
    |
-64 |     type AddrRange = ExternalRange;
+71 |     type AddrRange = ExternalRange;
    |                      ^^^^^^^^^^^^^ unsatisfied trait bound
    |
 help: the trait `memory_addr::range::sealed::Range` is not implemented for `ExternalRange`
@@ -90,15 +90,15 @@ note: required by a bound in `memory_addr::AddrRangeIterator::AddrRange`
    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `AddrRangeIterator::AddrRange`
 
 error[E0277]: the trait bound `ExternalIterator: memory_addr::range::sealed::RangeIterator` is not satisfied
-  --> tests/compile_fail/external_range.rs:63:35
+  --> tests/compile_fail/external_range.rs:70:35
    |
-63 | impl AddrRangeIterator<usize> for ExternalIterator {
+70 | impl AddrRangeIterator<usize> for ExternalIterator {
    |                                   ^^^^^^^^^^^^^^^^ unsatisfied trait bound
    |
 help: the trait `memory_addr::range::sealed::RangeIterator` is not implemented for `ExternalIterator`
-  --> tests/compile_fail/external_range.rs:47:1
+  --> tests/compile_fail/external_range.rs:54:1
    |
-47 | struct ExternalIterator;
+54 | struct ExternalIterator;
    | ^^^^^^^^^^^^^^^^^^^^^^^
 help: the following other types implement trait `memory_addr::range::sealed::RangeIterator`
   --> src/range/sealed.rs

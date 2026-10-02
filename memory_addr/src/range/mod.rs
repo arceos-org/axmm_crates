@@ -445,6 +445,65 @@ pub const trait AddrRangeBounds<A: [const] MemoryAddr>: Copy + sealed::Range {
     /// ```
     fn align_outwards(&self, alignment: usize) -> Option<Self>;
 
+    /// Subtracts another range from this range, returning the remaining
+    /// portions.
+    ///
+    /// The result is a tuple where the first element is the portion of this
+    /// range before the other range, and the second element is the portion
+    /// after the other range. Either element may be `None` if there is no
+    /// remaining portion.
+    ///
+    /// If `other` is empty, the original range is returned unchanged as
+    /// `(None, Some(*self))`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use memory_addr::{AddrRange, AddrRangeBounds, AddrRangeFrom};
+    ///
+    /// let range = AddrRange::new(10usize, 30);
+    /// assert_eq!(
+    ///     range.subtract(AddrRange::new(15, 20)),
+    ///     (Some(AddrRange::new(10, 15)), Some(AddrRange::new(20, 30))),
+    /// );
+    /// assert_eq!(
+    ///     range.subtract(AddrRange::new(17, 17)),
+    ///     (None, Some(range)),
+    /// );
+    ///
+    /// let tail = AddrRangeFrom::new(10usize);
+    /// assert_eq!(
+    ///     tail.subtract(AddrRange::new(15, 20)),
+    ///     (Some(AddrRange::new(10, 15)), Some(AddrRangeFrom::new(20))),
+    /// );
+    /// assert_eq!(
+    ///     tail.subtract(AddrRange::new(17, 17)),
+    ///     (None, Some(tail)),
+    /// );
+    /// ```
+    fn subtract<R: [const] AddrRangeBounds<A>>(
+        &self,
+        other: R,
+    ) -> (Option<AddrRange<A>>, Option<Self>);
+
+    /// Wraps the range in the general address range representation.
+    ///
+    /// The endpoints and validity are preserved without additional checks.
+    /// An existing general range is copied without changing its variant.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use memory_addr::{AddrRange, AddrRangeBounds, AddrRangeFrom, GeneralAddrRange};
+    ///
+    /// let bounded = AddrRange::new(1usize, 2).into_general();
+    /// let tail = AddrRangeFrom::new(usize::MAX).into_general();
+    /// assert!(matches!(bounded, GeneralAddrRange::Range(_)));
+    /// assert!(matches!(tail, GeneralAddrRange::RangeFrom(_)));
+    /// assert_eq!(tail.into_general(), tail);
+    /// ```
+    fn into_general(self) -> GeneralAddrRange<A>;
+
     /// The page iterator for this range type.
     ///
     /// Its items use the same semantic address type as the range endpoints.
@@ -486,22 +545,4 @@ pub const trait AddrRangeBounds<A: [const] MemoryAddr>: Copy + sealed::Range {
     fn iter(&self, page_size: usize) -> Option<Self::Iterator> {
         Self::Iterator::new(*self, page_size)
     }
-
-    /// Wraps the range in the general address range representation.
-    ///
-    /// The endpoints and validity are preserved without additional checks.
-    /// An existing general range is copied without changing its variant.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use memory_addr::{AddrRange, AddrRangeBounds, AddrRangeFrom, GeneralAddrRange};
-    ///
-    /// let bounded = AddrRange::new(1usize, 2).into_general();
-    /// let tail = AddrRangeFrom::new(usize::MAX).into_general();
-    /// assert!(matches!(bounded, GeneralAddrRange::Range(_)));
-    /// assert!(matches!(tail, GeneralAddrRange::RangeFrom(_)));
-    /// assert_eq!(tail.into_general(), tail);
-    /// ```
-    fn into_general(self) -> GeneralAddrRange<A>;
 }
