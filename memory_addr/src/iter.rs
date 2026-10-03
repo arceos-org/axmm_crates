@@ -1,11 +1,22 @@
-use crate::MemoryAddr;
+//! Page iterators with fixed or runtime-selected page sizes.
+//!
+//! Both interfaces delegate validation and iteration to the bounded range
+//! iterator.
+
+use crate::{AddrRange, AddrRangeIter, AddrRangeIterator, MemoryAddr};
 
 /// A page-by-page iterator.
 ///
+/// This type is retained for compatibility with existing code. Prefer
+/// [`AddrRangeIter`] for new code, typically constructed through
+/// [`AddrRangeBounds::iter`](crate::AddrRangeBounds::iter).
+///
 /// The page size is specified by the generic parameter `PAGE_SIZE`, which must
-/// be a power of 2.
+/// be a nonzero power of two.
 ///
 /// The address type is specified by the type parameter `A`.
+/// Validation and iteration use [`AddrRangeIter`], which also stores the page
+/// size.
 ///
 /// # Examples
 ///
@@ -18,55 +29,62 @@ use crate::MemoryAddr;
 /// assert_eq!(iter.next(), None);
 ///
 /// assert!(PageIter::<0x1000, usize>::new(0x1000, 0x3001).is_none());
+/// assert!(PageIter::<0x1000, usize>::new(0x3000, 0x1000).is_none());
 /// ```
 pub struct PageIter<const PAGE_SIZE: usize, A>
 where
     A: MemoryAddr,
 {
-    start: A,
-    end: A,
+    /// The underlying bounded page iterator.
+    ///
+    /// Its page size is initialized from `PAGE_SIZE`.
+    inner: AddrRangeIter<A>,
 }
 
-impl<A, const PAGE_SIZE: usize> PageIter<PAGE_SIZE, A>
+/// Construction with a compile-time page size.
+///
+/// The underlying iterator validates the endpoints and page size.
+const impl<A, const PAGE_SIZE: usize> PageIter<PAGE_SIZE, A>
 where
-    A: MemoryAddr,
+    A: [const] MemoryAddr,
 {
     /// Creates a new [`PageIter`].
     ///
-    /// Returns `None` if `PAGE_SIZE` is not a power of 2, or `start` or `end`
-    /// is not page-aligned.
+    /// Returns `None` if `start > end`, `PAGE_SIZE` is not a nonzero power of
+    /// two, or either endpoint is not page-aligned. Equal aligned endpoints
+    /// produce an empty iterator.
+    #[inline]
     pub fn new(start: A, end: A) -> Option<Self> {
-        if !PAGE_SIZE.is_power_of_two()
-            || !start.is_aligned(PAGE_SIZE)
-            || !end.is_aligned(PAGE_SIZE)
-        {
-            None
-        } else {
-            Some(Self { start, end })
+        match AddrRangeIter::new(AddrRange { start, end }, PAGE_SIZE) {
+            Some(inner) => Some(Self { inner }),
+            None => None,
         }
     }
 }
 
-impl<A, const PAGE_SIZE: usize> Iterator for PageIter<PAGE_SIZE, A>
+/// Iteration with a compile-time page size.
+///
+/// Page advancement and exhaustion are delegated to the underlying iterator.
+const impl<A, const PAGE_SIZE: usize> Iterator for PageIter<PAGE_SIZE, A>
 where
-    A: MemoryAddr,
+    A: [const] MemoryAddr,
 {
     type Item = A;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.start < self.end {
-            let ret = self.start;
-            self.start = self.start.add(PAGE_SIZE);
-            Some(ret)
-        } else {
-            None
-        }
+        self.inner.next()
     }
 }
 
 /// A page-by-page iterator with dynamic page size.
 ///
+/// This type is retained for compatibility with existing code. Prefer
+/// [`AddrRangeIter`] for new code, typically constructed through
+/// [`AddrRangeBounds::iter`](crate::AddrRangeBounds::iter).
+///
 /// The address type is specified by the type parameter `A`.
+/// Validation and iteration use [`AddrRangeIter`].
 ///
 /// # Examples
 ///
@@ -80,53 +98,50 @@ where
 ///
 /// assert!(DynPageIter::<usize>::new(0x1000, 0x3001, 0x1000).is_none());
 /// assert!(DynPageIter::<usize>::new(0x1000, 0x3000, 0x1001).is_none());
+/// assert!(DynPageIter::<usize>::new(0x3000, 0x1000, 0x1000).is_none());
 /// ```
 pub struct DynPageIter<A>
 where
     A: MemoryAddr,
 {
-    start: A,
-    end: A,
-    page_size: usize,
+    /// The underlying bounded page iterator.
+    ///
+    /// It stores the runtime-selected page size and the remaining endpoints.
+    inner: AddrRangeIter<A>,
 }
 
-impl<A> DynPageIter<A>
+/// Construction with a runtime-selected page size.
+///
+/// The underlying iterator validates the endpoints and page size.
+const impl<A> DynPageIter<A>
 where
-    A: MemoryAddr,
+    A: [const] MemoryAddr,
 {
     /// Creates a new [`DynPageIter`].
     ///
-    /// Returns `None` if `page_size` is not a power of 2, or `start` or `end`
-    /// is not page-aligned.
+    /// Returns `None` if `start > end`, `page_size` is not a nonzero power of
+    /// two, or either endpoint is not page-aligned. Equal aligned endpoints
+    /// produce an empty iterator.
+    #[inline]
     pub fn new(start: A, end: A, page_size: usize) -> Option<Self> {
-        if !page_size.is_power_of_two()
-            || !start.is_aligned(page_size)
-            || !end.is_aligned(page_size)
-        {
-            None
-        } else {
-            Some(Self {
-                start,
-                end,
-                page_size,
-            })
+        match AddrRangeIter::new(AddrRange { start, end }, page_size) {
+            Some(inner) => Some(Self { inner }),
+            None => None,
         }
     }
 }
 
-impl<A> Iterator for DynPageIter<A>
+/// Iteration with a runtime-selected page size.
+///
+/// Page advancement and exhaustion are delegated to the underlying iterator.
+const impl<A> Iterator for DynPageIter<A>
 where
-    A: MemoryAddr,
+    A: [const] MemoryAddr,
 {
     type Item = A;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.start < self.end {
-            let ret = self.start;
-            self.start = self.start.add(self.page_size);
-            Some(ret)
-        } else {
-            None
-        }
+        self.inner.next()
     }
 }
