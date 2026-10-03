@@ -87,7 +87,8 @@ impl<B: MappingBackend> MemorySet<B> {
             return None;
         }
         // brute force: try each area's end address as the start.
-        let mut last_end: <B as MappingBackend>::Addr = hint.max(limit.start).align_up(align);
+        let mut last_end: <B as MappingBackend>::Addr = hint.max(limit.start).align_up_checked(align)
+            .expect("hint or limit.start too close to the end of the address space");
         if let Some((_, area)) = self.areas.range(..last_end).last() {
             last_end = last_end.max(area.end()).align_up(align);
         }
