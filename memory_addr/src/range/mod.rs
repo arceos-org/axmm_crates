@@ -454,7 +454,7 @@ pub const trait AddrRangeBounds<A: [const] MemoryAddr>: Copy + sealed::Range {
     /// remaining portion.
     ///
     /// If `other` is empty, the original range is returned unchanged as
-    /// `(None, Some(*self))`.
+    /// `(None, Some(*self))`. If `self` is empty, the result is `(None, None)`.
     ///
     /// # Examples
     ///

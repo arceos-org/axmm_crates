@@ -358,3 +358,73 @@ fn test_find_free_area() {
     let addr = set.find_free_area(0xf001.into(), 0x1000, va_range!(0..MAX_ADDR), 0x1000);
     assert_eq!(addr, None);
 }
+
+#[test]
+fn test_find_free_area_hint_alignment_overflow() {
+    let set = MockMemorySet::new();
+    assert_eq!(
+        set.find_free_area(
+            (usize::MAX - 0x10).into(),
+            0x1000,
+            va_range!(0..usize::MAX),
+            0x1000,
+        ),
+        None,
+    );
+}
+
+#[test]
+fn test_find_free_area_limit_start_alignment_overflow() {
+    let set = MockMemorySet::new();
+    assert_eq!(
+        set.find_free_area(
+            0.into(),
+            0x1000,
+            va_range!(usize::MAX - 0x10..usize::MAX),
+            0x1000,
+        ),
+        None,
+    );
+}
+
+#[test]
+fn test_find_free_area_preceding_area_alignment_overflow() {
+    let mut set = MockMemorySet::new();
+    let mut pt = [0; MAX_ADDR];
+    assert_ok!(set.map(
+        MemoryArea::new((usize::MAX - 0x1fff).into(), 0x1fff, 1, MockBackend),
+        &mut pt,
+        false,
+    ));
+
+    assert_eq!(
+        set.find_free_area(
+            (usize::MAX - 0xfff).into(),
+            0x1000,
+            va_range!(usize::MAX - 0x1fff..usize::MAX),
+            0x1000,
+        ),
+        None,
+    );
+}
+
+#[test]
+fn test_find_free_area_following_area_alignment_overflow() {
+    let mut set = MockMemorySet::new();
+    let mut pt = [0; MAX_ADDR];
+    assert_ok!(set.map(
+        MemoryArea::new((usize::MAX - 0x1fff).into(), 0x1fff, 1, MockBackend),
+        &mut pt,
+        false,
+    ));
+
+    assert_eq!(
+        set.find_free_area(
+            (usize::MAX - 0x2fff).into(),
+            0x2000,
+            va_range!(usize::MAX - 0x2fff..usize::MAX),
+            0x1000,
+        ),
+        None,
+    );
+}

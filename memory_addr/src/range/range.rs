@@ -248,6 +248,9 @@ const impl<A: [const] MemoryAddr> AddrRangeBounds<A> for AddrRange<A> {
         &self,
         other: R,
     ) -> (Option<AddrRange<A>>, Option<Self>) {
+        if self.is_empty() {
+            return (None, None);
+        }
         if other.is_empty() {
             return (None, Some(*self));
         }

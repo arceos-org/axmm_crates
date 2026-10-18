@@ -136,6 +136,28 @@ fn const_bounded_subtract() {
     assert_eq!(EMPTY_AFTER, (None, Some(RANGE)));
 }
 
+/// Subtracting any range from an empty range leaves no pieces.
+#[test]
+fn const_empty_range_subtract() {
+    type Difference = (Option<AddrRange<usize>>, Option<AddrRange<usize>>);
+    const EMPTY: AddrRange<usize> = AddrRange::new(5, 5);
+    const RESULTS: [Difference; 6] = [
+        EMPTY.subtract(AddrRange::new(0, 3)),
+        EMPTY.subtract(AddrRange::new(7, 10)),
+        EMPTY.subtract(AddrRange::new(0, 10)),
+        EMPTY.subtract(EMPTY),
+        EMPTY.subtract(AddrRangeFrom::new(0)),
+        EMPTY.subtract(AddrRangeFrom::new(7)),
+    ];
+    const GENERAL_RESULT: (Option<AddrRange<usize>>, Option<GeneralAddrRange<usize>>) =
+        GeneralAddrRange::from(EMPTY).subtract(AddrRange::new(0, 3));
+
+    for result in RESULTS {
+        assert_eq!(result, (None, None));
+    }
+    assert_eq!(GENERAL_RESULT, (None, None));
+}
+
 /// Checks subtraction from an open-ended range through the maximum address.
 #[test]
 fn const_open_ended_subtract() {

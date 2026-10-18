@@ -428,3 +428,29 @@ fn const_physical_macro() {
         GeneralAddrRange::Range(AddrRange::new(pa!(2), pa!(6)))
     );
 }
+
+/// The inferred macro rejects reversed exclusive bounds.
+#[test]
+#[should_panic]
+#[allow(clippy::reversed_empty_ranges)]
+fn inferred_macro_rejects_reversed_range() {
+    let _: AddrRange<usize> = addr_range!(5usize..2);
+}
+
+/// The virtual-address macro preserves its checked-construction behavior.
+#[test]
+#[should_panic]
+#[allow(clippy::reversed_empty_ranges)]
+fn virtual_macro_rejects_reversed_range() {
+    let _ = va_range!(0x2000usize..0x1000);
+}
+
+/// New standard range types receive the same validation in the physical macro.
+#[test]
+#[should_panic]
+fn physical_macro_rejects_reversed_range() {
+    let _ = pa_range!(core::range::Range {
+        start: 5usize,
+        end: 2,
+    });
+}

@@ -22,9 +22,12 @@ use crate::{AddrRange, AddrRangeBounds, AddrRangeFrom, GeneralAddrRange, MemoryA
 /// | `RangeInclusive`, `RangeToInclusive` | [`GeneralAddrRange<A>`] |
 ///
 /// Exclusive endpoints are preserved without validation, including reversed
-/// endpoints that produce an invalid `AddrRange`. Inclusive upper endpoints
-/// become exclusive by adding one. An inclusive upper endpoint of `usize::MAX`
-/// produces [`GeneralAddrRange::RangeFrom`], avoiding overflow.
+/// endpoints that produce an invalid `AddrRange`. The
+/// [`addr_range!`](crate::addr_range), [`va_range!`](crate::va_range), and
+/// [`pa_range!`](crate::pa_range) macros validate the converted range instead.
+/// Inclusive upper endpoints become exclusive by adding one. An
+/// inclusive upper endpoint of `usize::MAX` produces
+/// [`GeneralAddrRange::RangeFrom`], avoiding overflow.
 ///
 /// Reversed inclusive ranges become empty bounded ranges at the converted
 /// start. An exhausted [`core::ops::RangeInclusive`] also becomes an empty
@@ -267,9 +270,11 @@ const impl<A: [const] MemoryAddr> IntoAddrRange<A> for core::ops::RangeFull {
 /// Converts a standard library range into an address range.
 ///
 /// The address type is inferred from context. The source's upper bound
-/// determines the output type as described by [`IntoAddrRange`]. Exclusive
-/// endpoints are preserved without validation, so reversed exclusive ranges do
-/// not panic.
+/// determines the output type as described by [`IntoAddrRange`].
+///
+/// # Panics
+///
+/// Panics if the converted range has reversed exclusive endpoints.
 ///
 /// # Example
 ///
@@ -292,16 +297,24 @@ const impl<A: [const] MemoryAddr> IntoAddrRange<A> for core::ops::RangeFull {
 /// ```
 #[macro_export]
 macro_rules! addr_range {
-    ($range:expr) => {
-        $crate::IntoAddrRange::into_addr_range($range)
-    };
+    ($range:expr) => {{
+        let range = $crate::IntoAddrRange::into_addr_range($range);
+        assert!(
+            $crate::AddrRangeBounds::is_valid(&range),
+            "invalid `AddrRange`: `start` must be less than or equal to `end`",
+        );
+        range
+    }};
 }
 
 /// Converts a standard library range into a virtual address range.
 ///
 /// The output is [`AddrRange`], [`AddrRangeFrom`], or [`GeneralAddrRange`] with
 /// [`VirtAddr`](crate::VirtAddr) endpoints, following [`IntoAddrRange`].
-/// Reversed exclusive endpoints are preserved without validation.
+///
+/// # Panics
+///
+/// Panics if the converted range has reversed exclusive endpoints.
 ///
 /// # Example
 ///
@@ -315,16 +328,24 @@ macro_rules! addr_range {
 /// ```
 #[macro_export]
 macro_rules! va_range {
-    ($range:expr) => {
-        $crate::IntoAddrRange::<$crate::VirtAddr>::into_addr_range($range)
-    };
+    ($range:expr) => {{
+        let range = $crate::IntoAddrRange::<$crate::VirtAddr>::into_addr_range($range);
+        assert!(
+            $crate::AddrRangeBounds::is_valid(&range),
+            "invalid `AddrRange`: `start` must be less than or equal to `end`",
+        );
+        range
+    }};
 }
 
 /// Converts a standard library range into a physical address range.
 ///
 /// The output is [`AddrRange`], [`AddrRangeFrom`], or [`GeneralAddrRange`] with
 /// [`PhysAddr`](crate::PhysAddr) endpoints, following [`IntoAddrRange`].
-/// Reversed exclusive endpoints are preserved without validation.
+///
+/// # Panics
+///
+/// Panics if the converted range has reversed exclusive endpoints.
 ///
 /// # Example
 ///
@@ -338,7 +359,12 @@ macro_rules! va_range {
 /// ```
 #[macro_export]
 macro_rules! pa_range {
-    ($range:expr) => {
-        $crate::IntoAddrRange::<$crate::PhysAddr>::into_addr_range($range)
-    };
+    ($range:expr) => {{
+        let range = $crate::IntoAddrRange::<$crate::PhysAddr>::into_addr_range($range);
+        assert!(
+            $crate::AddrRangeBounds::is_valid(&range),
+            "invalid `AddrRange`: `start` must be less than or equal to `end`",
+        );
+        range
+    }};
 }
