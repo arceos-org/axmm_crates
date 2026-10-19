@@ -1,0 +1,125 @@
+error[E0277]: the trait bound `ExternalIterator: memory_addr::range::sealed::RangeIterator` is not satisfied
+  --> tests/compile_fail/external_range.rs:17:21
+   |
+17 |     type Iterator = ExternalIterator;
+   |                     ^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `memory_addr::range::sealed::RangeIterator` is not implemented for `ExternalIterator`
+  --> tests/compile_fail/external_range.rs:54:1
+   |
+54 | struct ExternalIterator;
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+help: the following other types implement trait `memory_addr::range::sealed::RangeIterator`
+  --> src/range/sealed.rs
+   |
+   | impl<A: MemoryAddr> RangeIterator for AddrRangeIter<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `AddrRangeIter<A>`
+...
+   | impl<A: MemoryAddr> RangeIterator for AddrRangeFromIter<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `AddrRangeFromIter<A>`
+...
+   | impl<A: MemoryAddr> RangeIterator for GeneralAddrRangeIter<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `GeneralAddrRangeIter<A>`
+   = note: required for `<ExternalRange as AddrRangeBounds<usize>>::Iterator` to implement `AddrRangeIterator<usize>`
+note: required by a bound in `memory_addr::AddrRangeBounds::Iterator`
+  --> src/range/mod.rs
+   |
+   |     type Iterator: [const] AddrRangeIterator<A, AddrRange = Self>;
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `AddrRangeBounds::Iterator`
+
+error[E0277]: the trait bound `ExternalRange: memory_addr::range::sealed::Range` is not satisfied
+  --> tests/compile_fail/external_range.rs:16:33
+   |
+16 | impl AddrRangeBounds<usize> for ExternalRange {
+   |                                 ^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `memory_addr::range::sealed::Range` is not implemented for `ExternalRange`
+  --> tests/compile_fail/external_range.rs:11:1
+   |
+11 | struct ExternalRange;
+   | ^^^^^^^^^^^^^^^^^^^^
+help: the following other types implement trait `memory_addr::range::sealed::Range`
+  --> src/range/sealed.rs
+   |
+   | impl<A: MemoryAddr> Range for AddrRange<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `AddrRange<A>`
+...
+   | impl<A: MemoryAddr> Range for AddrRangeFrom<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `AddrRangeFrom<A>`
+...
+   | impl<A: MemoryAddr> Range for GeneralAddrRange<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `GeneralAddrRange<A>`
+note: required by a bound in `AddrRangeBounds`
+  --> src/range/mod.rs
+   |
+   | pub const trait AddrRangeBounds<A: [const] MemoryAddr>: Copy + sealed::Range {
+   |                                                                ^^^^^^^^^^^^^ required by this bound in `AddrRangeBounds`
+   = note: `AddrRangeBounds` is a "sealed trait", because to implement it you also need to implement `memory_addr::range::sealed::Range`, which is not accessible; this is usually done to force you to use one of the provided types that already implement it
+   = help: the following types implement the trait:
+             memory_addr::AddrRange<A>
+             memory_addr::AddrRangeFrom<A>
+             memory_addr::GeneralAddrRange<A>
+
+error[E0277]: the trait bound `ExternalRange: memory_addr::range::sealed::Range` is not satisfied
+  --> tests/compile_fail/external_range.rs:71:22
+   |
+71 |     type AddrRange = ExternalRange;
+   |                      ^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `memory_addr::range::sealed::Range` is not implemented for `ExternalRange`
+  --> tests/compile_fail/external_range.rs:11:1
+   |
+11 | struct ExternalRange;
+   | ^^^^^^^^^^^^^^^^^^^^
+help: the following other types implement trait `memory_addr::range::sealed::Range`
+  --> src/range/sealed.rs
+   |
+   | impl<A: MemoryAddr> Range for AddrRange<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `AddrRange<A>`
+...
+   | impl<A: MemoryAddr> Range for AddrRangeFrom<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `AddrRangeFrom<A>`
+...
+   | impl<A: MemoryAddr> Range for GeneralAddrRange<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `GeneralAddrRange<A>`
+   = note: required for `<ExternalIterator as AddrRangeIterator<usize>>::AddrRange` to implement `AddrRangeBounds<usize>`
+note: required by a bound in `memory_addr::AddrRangeIterator::AddrRange`
+  --> src/range/mod.rs
+   |
+   |     type AddrRange: [const] AddrRangeBounds<A>;
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `AddrRangeIterator::AddrRange`
+
+error[E0277]: the trait bound `ExternalIterator: memory_addr::range::sealed::RangeIterator` is not satisfied
+  --> tests/compile_fail/external_range.rs:70:35
+   |
+70 | impl AddrRangeIterator<usize> for ExternalIterator {
+   |                                   ^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `memory_addr::range::sealed::RangeIterator` is not implemented for `ExternalIterator`
+  --> tests/compile_fail/external_range.rs:54:1
+   |
+54 | struct ExternalIterator;
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+help: the following other types implement trait `memory_addr::range::sealed::RangeIterator`
+  --> src/range/sealed.rs
+   |
+   | impl<A: MemoryAddr> RangeIterator for AddrRangeIter<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `AddrRangeIter<A>`
+...
+   | impl<A: MemoryAddr> RangeIterator for AddrRangeFromIter<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `AddrRangeFromIter<A>`
+...
+   | impl<A: MemoryAddr> RangeIterator for GeneralAddrRangeIter<A> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `GeneralAddrRangeIter<A>`
+note: required by a bound in `AddrRangeIterator`
+  --> src/range/mod.rs
+   |
+   | pub const trait AddrRangeIterator<A: [const] MemoryAddr>:
+   |                 ----------------- required by a bound in this trait
+   |     [const] Iterator<Item = A> + Sized + sealed::RangeIterator
+   |                                          ^^^^^^^^^^^^^^^^^^^^^ required by this bound in `AddrRangeIterator`
+   = note: `AddrRangeIterator` is a "sealed trait", because to implement it you also need to implement `memory_addr::range::sealed::RangeIterator`, which is not accessible; this is usually done to force you to use one of the provided types that already implement it
+   = help: the following types implement the trait:
+             memory_addr::AddrRangeIter<A>
+             memory_addr::AddrRangeFromIter<A>
+             memory_addr::GeneralAddrRangeIter<A>

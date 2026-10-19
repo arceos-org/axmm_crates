@@ -9,13 +9,20 @@ env:
 
 jobs:
   test:
+    name: Tests (${{ matrix.profile }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [test, release]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-06-01
 
       - name: Run tests
-        run: cargo test --target x86_64-unknown-linux-gnu -- --nocapture
+        run: cargo test --workspace --all-features --target x86_64-unknown-linux-gnu --profile ${{ matrix.profile }} -- --nocapture
