@@ -3,8 +3,9 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
-      - 'v*.*.*-pre.*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-alpha.*'
+      - 'v[0-9]+.[0-9]+.[0-9]+-pre.*'
 
 permissions:
   contents: write
@@ -28,6 +29,7 @@ jobs:
           fetch-depth: 0
 
       - name: Validate tag is on main branch
+        if: ${{ !contains(github.ref_name, '-alpha.') }}    # Checks for non-alpha tags
         shell: bash
         run: |
           set -e
@@ -74,7 +76,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-pre.') }}
+          prerelease: ${{ contains(github.ref_name, '-alpha.') || contains(github.ref_name, '-pre.') }}
           body: |
             ## ${{ github.ref_name }}
 
@@ -95,6 +97,7 @@ jobs:
           fetch-depth: 0
 
       - name: Validate tag is on main branch
+        if: ${{ !contains(github.ref_name, '-alpha.') }}    # Checks for non-alpha tags
         shell: bash
         run: |
           set -e
